@@ -1,28 +1,26 @@
-# Usamos Python 3.9 versión ligera
-FROM python:3.9-slim
+# Usamos Python 3.11 (Más moderno para IA)
+FROM python:3.11-slim
 
 # Directorio de trabajo
 WORKDIR /app
 
-# -------------------------------------------------------------------
-# AQUI ESTA EL CAMBIO: Agregamos 'curl' a la instalación
-# -------------------------------------------------------------------
+# Instalar Graphviz y Curl
 RUN apt-get update && apt-get install -y \
     graphviz \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar archivos del proyecto
+# Copiar archivos
 COPY . .
 
-# Instalar librerías de Python
+# Instalar librerías Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Exponer el puerto correcto
+# Puerto
 EXPOSE 8501
 
-# Chequeo de salud (Ahora sí funcionará porque instalamos curl)
+# Chequeo de salud
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
 
-# Comando de arranque
+# Comando de ejecución
 ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
