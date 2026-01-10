@@ -12,10 +12,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+# --- PEGA AQUÍ EL ID DE TU ARCHIVO EXCEL ---
+# Ejemplo: "1A2B3C4D5E6F_gH7iJ8kL9mN0oP..."
+SPREADSHEET_ID = "1lyCoF7I5rfb6Kh72RmZBy0soHFnrZgsi"
+
 def get_creds():
-    """
-    Decodifica la llave (Base64 o JSON) y retorna las credenciales.
-    """
     encoded_key = os.environ.get("GCP_JSON_KEY")
     
     # Fallback local
@@ -28,16 +29,14 @@ def get_creds():
 
     if encoded_key:
         try:
-            # Intentamos limpiar y decodificar
             encoded_key = encoded_key.strip()
-            
-            # Si parece Base64 (no tiene llaves {})
-            if "{" not in encoded_key:
+            # Decodificación inteligente (Base64 o JSON directo)
+            if "{" not in encoded_key: 
                 decoded_bytes = base64.b64decode(encoded_key)
                 decoded_str = decoded_bytes.decode("utf-8")
                 info = json.loads(decoded_str)
             else:
-                # Si el usuario pegó el JSON directo (a veces pasa)
+                # Si el usuario pegó el JSON directo
                 try:
                     info = json.loads(encoded_key)
                 except:
@@ -45,7 +44,7 @@ def get_creds():
             
             return Credentials.from_service_account_info(info, scopes=SCOPES)
         except Exception as e:
-            st.error(f"❌ Error leyendo la llave: {e}")
+            st.error(f"❌ Error leyendo credenciales: {e}")
             return None
 
     st.error("❌ No se encontró la variable GCP_JSON_KEY.")
@@ -58,31 +57,28 @@ def connect_to_drive():
     return None
 
 def get_employees():
-    creds = get_creds()
     try:
         client = connect_to_drive()
         if not client: return pd.DataFrame()
 
-        # Nombre del archivo
-        nombre_archivo = "BD EMPLEADOS- EX EMPLEADOS"
-        
+        # USAMOS EL ID DIRECTO (Mucho más seguro)
         try:
-            sheet = client.open(nombre_archivo).sheet1
+            # open_by_key es infalible si tienes permisos
+            sheet = client.open_by_key(SPREADSHEET_ID).sheet1
             data = sheet.get_all_records()
             df = pd.DataFrame(data)
+            
+            # Limpieza de columnas
             df.columns = [str(c).strip() for c in df.columns]
             
             if not df.empty and "NOMBRE COMPLETO" in df.columns:
                 df = df[df["NOMBRE COMPLETO"] != ""]
             return df
-            
-        except gspread.SpreadsheetNotFound:
-            st.error(f"❌ El robot no encuentra el archivo: '{nombre_archivo}'")
-            st.warning(f"👉 Ve a tu Google Drive, clic derecho en el archivo -> Compartir -> Pega este correo: {creds.service_account_email}")
+
+        except Exception as e:
+            st.error(f"❌ Error abriendo el archivo por ID: {e}")
             return pd.DataFrame()
             
     except Exception as e:
-        st.error(f"⚠️ Error de conexión: {e}")
-        if creds:
-             st.info(f"💡 Pista: Asegúrate de que el archivo en Drive esté compartido como EDITOR con: {creds.service_account_email}")
+        st.error(f"⚠️ Error general de conexión: {e}")
         return pd.DataFrame()
