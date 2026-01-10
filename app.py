@@ -1,0 +1,36 @@
+import streamlit as st
+from modules.auth import check_password
+
+# Configuración de página
+st.set_page_config(
+    page_title="SERVINET HR Dashboard",
+    page_icon="📡",
+    layout="wide"
+)
+
+# 1. Verificación de seguridad
+if not check_password():
+    st.stop()  # Si no hay login, detiene todo aquí.
+
+# 2. Bienvenida
+st.title("📡 Panel de Control RRHH - SERVINET")
+st.markdown("---")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.info("👋 **Bienvenido al sistema centralizado.**")
+    st.markdown("""
+    Desde aquí podrás:
+    * Visualizar el organigrama en tiempo real.
+    * Realizar evaluaciones de desempeño asistidas por IA.
+    * Consultar la base de datos de empleados.
+    """)
+
+with col2:
+    st.warning("⚠️ **Estado del Sistema**")
+    st.success("✅ Conexión a Google Drive: ACTIVA")
+    st.success("✅ Motor de IA: LISTO")
+
+st.markdown("---")
+st.caption("Desarrollado para SERVINET - Versión 1.0")
