@@ -3,6 +3,7 @@ import gspread
 import pandas as pd
 import json
 import os
+import ast  # <--- ESTA ES LA CLAVE NUEVA
 from google.oauth2.service_account import Credentials
 
 # Permisos requeridos por Google
@@ -13,50 +14,49 @@ SCOPES = [
 
 def get_creds():
     """
-    Obtiene las credenciales de forma ROBUSTA.
-    Corrige errores de formato comunes (comillas simples vs dobles).
+    Obtiene las credenciales usando 'ast' para leer diccionarios de Python
+    que se hacen pasar por JSON.
     """
     
     # --- INTENTO 1: Variable de Entorno (Producción / Coolify) ---
-    env_json = os.environ.get("GCP_JSON_KEY")
+    env_data = os.environ.get("GCP_JSON_KEY")
     
-    if env_json:
+    if env_data:
         try:
-            # --- FASE DE LIMPIEZA INTELIGENTE ---
-            # Muchos errores ocurren porque al copiar/pegar se usan comillas simples (')
-            # o booleanos de Python (True) en lugar de JSON (true).
-            
-            # 1. Si parece un dict de Python, forzar comillas dobles
-            if "'" in env_json:
-                env_json = env_json.replace("'", '"')
-            
-            # 2. Corregir booleanos de Python a JSON
-            env_json = env_json.replace("True", "true").replace("False", "false")
-
-            # 3. Intentar parsear
-            info = json.loads(env_json)
+            # ESTRATEGIA 1: Intentar leer como JSON estándar (Lo ideal)
+            info = json.loads(env_data)
+        except json.JSONDecodeError:
+            try:
+                # ESTRATEGIA 2 (LA SOLUCIÓN): Leer como estructura de Python
+                # Esto acepta {'type': 'service_account'} con comillas simples
+                info = ast.literal_eval(env_data)
+            except Exception as e:
+                st.error(f"❌ La llave en Coolify está corrupta o incompleta. Error: {e}")
+                # Imprimimos los primeros 50 caracteres para que veas qué está leyendo
+                st.write(f"Inicio de la llave leída: {env_data[:50]}...")
+                return None
+        
+        # Si logramos obtener 'info' (ya sea por JSON o AST), creamos la credencial
+        try:
             return Credentials.from_service_account_info(info, scopes=SCOPES)
-            
-        except json.JSONDecodeError as e:
-            st.error(f"Error de Formato JSON en Coolify: {e}")
-            st.code(env_json) # Muestra qué está intentando leer para que veas el error
-            return None
         except Exception as e:
-            st.error(f"Error general leyendo la llave: {e}")
+            st.error(f"El formato es válido, pero Google lo rechaza: {e}")
             return None
 
-    # --- INTENTO 2: Archivo Local secrets.toml (Desarrollo) ---
+    # --- INTENTO 3: Archivo Local secrets.toml (Desarrollo) ---
     try:
         if st.secrets and "gcp_service_account" in st.secrets:
-            # Aquí leemos el string y también aplicamos limpieza por si acaso
-            raw_json = st.secrets["gcp_service_account"]["json_content"]
-            raw_json = raw_json.replace("'", '"').replace("True", "true").replace("False", "false")
-            info = json.loads(raw_json)
+            # Aquí también aplicamos la lógica doble por seguridad
+            raw_data = st.secrets["gcp_service_account"]["json_content"]
+            try:
+                info = json.loads(raw_data)
+            except:
+                info = ast.literal_eval(raw_data)
             return Credentials.from_service_account_info(info, scopes=SCOPES)
     except Exception:
         pass
             
-    st.error("❌ ERROR CRÍTICO: No se encontraron credenciales (GCP_JSON_KEY).")
+    st.error("❌ ERROR CRÍTICO: No se encontró la variable GCP_JSON_KEY en Coolify.")
     return None
 
 def connect_to_drive():
@@ -78,10 +78,9 @@ def get_employees():
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
 
-        # LIMPIEZA: Normalizar nombres de columnas
+        # LIMPIEZA
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Filtrar vacíos
         if not df.empty and "NOMBRE COMPLETO" in df.columns:
             df = df[df["NOMBRE COMPLETO"] != ""]
             
