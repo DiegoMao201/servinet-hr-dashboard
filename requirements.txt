@@ -10,3 +10,7 @@ graphviz
 openai
 fpdf
 plotly
+openai
+PyPDF2
+python-docx
+io
