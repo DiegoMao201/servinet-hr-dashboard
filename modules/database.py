@@ -14,7 +14,7 @@ SCOPES = [
 
 # --- PEGA AQUÍ EL ID DE TU ARCHIVO EXCEL ---
 # Ejemplo: "1A2B3C4D5E6F_gH7iJ8kL9mN0oP..."
-SPREADSHEET_ID = "1lyCoF7I5rfb6Kh72RmZBy0soHFnrZgsi"
+SPREADSHEET_ID = "1eHDMFzGu0OswhzFITGU2czlaqd2xvBsy5gYZ0hB_Rqo"
 
 def get_creds():
     encoded_key = os.environ.get("GCP_JSON_KEY")
