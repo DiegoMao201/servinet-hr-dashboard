@@ -1,21 +1,70 @@
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import json
+import os
+from google.oauth2.service_account import Credentials
+
+# Configuración de alcances para Google Drive API
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+def get_creds():
+    """
+    Intenta obtener credenciales de 3 formas:
+    1. Secrets locales (PC)
+    2. Variable de entorno JSON pura (Coolify)
+    3. Archivo temporal (Fallback)
+    """
+    # INTENTO 1: Variable de Entorno en Coolify (GCP_SERVICE_ACCOUNT)
+    env_json = os.environ.get("GCP_SERVICE_ACCOUNT")
+    if env_json:
+        try:
+            info = json.loads(env_json)
+            return Credentials.from_service_account_info(info, scopes=SCOPES)
+        except Exception as e:
+            st.error(f"Error leyendo JSON de Coolify: {e}")
+
+    # INTENTO 2: Secrets.toml (Local)
+    if "gcp_service_account" in st.secrets:
+        try:
+            info = json.loads(st.secrets["gcp_service_account"]["json_content"])
+            return Credentials.from_service_account_info(info, scopes=SCOPES)
+        except:
+            pass
+            
+    st.error("❌ No se encontraron credenciales. Configura GCP_SERVICE_ACCOUNT en Coolify.")
+    return None
 
 def connect_to_drive():
-    # En producción (Coolify), las credenciales vendrán de st.secrets
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    
-    # Cargamos el JSON desde los secretos de Streamlit
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    return client
+    creds = get_creds()
+    if creds:
+        return gspread.authorize(creds)
+    return None
 
 def get_employees():
-    client = connect_to_drive()
-    sheet = client.open("BD EMPLEADOS- EX EMPLEADOS ").sheet1 # Nombre de tu archivo en Drive
-    data = sheet.get_all_records()
-    return pd.DataFrame(data)
+    """
+    Obtiene y limpia la base de datos de empleados.
+    """
+    try:
+        client = connect_to_drive()
+        if not client: return pd.DataFrame()
+
+        # Nombre EXACTO de tu archivo en Drive
+        sheet = client.open("BD EMPLEADOS- EX EMPLEADOS").sheet1
+        data = sheet.get_all_records()
+        df = pd.DataFrame(data)
+
+        # Limpieza de columnas (Quitar espacios en blanco al inicio/final)
+        df.columns = [c.strip() for c in df.columns]
+        
+        # Filtrar filas vacías si las hay
+        if not df.empty:
+            df = df[df["NOMBRE COMPLETO"] != ""]
+            
+        return df
+    except Exception as e:
+        st.error(f"Error obteniendo datos: {e}")
+        return pd.DataFrame()
