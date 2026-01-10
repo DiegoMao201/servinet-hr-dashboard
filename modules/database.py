@@ -13,36 +13,50 @@ SCOPES = [
 
 def get_creds():
     """
-    Obtiene las credenciales de forma SEGURA.
-    Prioridad:
-    1. Variable de Entorno de Coolify (GCP_JSON_KEY)
-    2. Archivo local secrets.toml (Solo para desarrollo en PC)
+    Obtiene las credenciales de forma ROBUSTA.
+    Corrige errores de formato comunes (comillas simples vs dobles).
     """
     
     # --- INTENTO 1: Variable de Entorno (Producción / Coolify) ---
     env_json = os.environ.get("GCP_JSON_KEY")
+    
     if env_json:
         try:
+            # --- FASE DE LIMPIEZA INTELIGENTE ---
+            # Muchos errores ocurren porque al copiar/pegar se usan comillas simples (')
+            # o booleanos de Python (True) en lugar de JSON (true).
+            
+            # 1. Si parece un dict de Python, forzar comillas dobles
+            if "'" in env_json:
+                env_json = env_json.replace("'", '"')
+            
+            # 2. Corregir booleanos de Python a JSON
+            env_json = env_json.replace("True", "true").replace("False", "false")
+
+            # 3. Intentar parsear
             info = json.loads(env_json)
             return Credentials.from_service_account_info(info, scopes=SCOPES)
+            
+        except json.JSONDecodeError as e:
+            st.error(f"Error de Formato JSON en Coolify: {e}")
+            st.code(env_json) # Muestra qué está intentando leer para que veas el error
+            return None
         except Exception as e:
-            st.error(f"Error leyendo la llave de Coolify: {e}")
+            st.error(f"Error general leyendo la llave: {e}")
             return None
 
     # --- INTENTO 2: Archivo Local secrets.toml (Desarrollo) ---
-    # Usamos un try-except ESPECÍFICO para evitar el error "SecretNotFoundError"
     try:
-        # Solo intentamos acceder si existe la sección, si no, saltará al except
         if st.secrets and "gcp_service_account" in st.secrets:
-            info = json.loads(st.secrets["gcp_service_account"]["json_content"])
+            # Aquí leemos el string y también aplicamos limpieza por si acaso
+            raw_json = st.secrets["gcp_service_account"]["json_content"]
+            raw_json = raw_json.replace("'", '"').replace("True", "true").replace("False", "false")
+            info = json.loads(raw_json)
             return Credentials.from_service_account_info(info, scopes=SCOPES)
     except Exception:
-        # Si no hay archivo secrets.toml (como en Coolify), ignoramos el error silenciosamente
         pass
             
-    # Si llegó aquí, no encontró ni la variable de entorno ni el archivo
-    st.error("❌ ERROR CRÍTICO: No se encontraron credenciales.")
-    st.warning("En Coolify: Verifica que la variable se llame EXACTAMENTE 'GCP_JSON_KEY' y tenga el JSON pegado.")
+    st.error("❌ ERROR CRÍTICO: No se encontraron credenciales (GCP_JSON_KEY).")
     return None
 
 def connect_to_drive():
@@ -64,15 +78,14 @@ def get_employees():
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
 
-        # LIMPIEZA: Normalizar nombres de columnas (quitar espacios extra)
+        # LIMPIEZA: Normalizar nombres de columnas
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Filtrar vacíos si existe la columna clave
+        # Filtrar vacíos
         if not df.empty and "NOMBRE COMPLETO" in df.columns:
             df = df[df["NOMBRE COMPLETO"] != ""]
             
         return df
     except Exception as e:
-        # Mostramos el error exacto para depurar
         st.error(f"Error conectando a la hoja de cálculo: {e}")
         return pd.DataFrame()
