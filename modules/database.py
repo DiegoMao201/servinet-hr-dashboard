@@ -18,8 +18,8 @@ def get_creds():
     2. Variable de entorno JSON pura (Coolify)
     3. Archivo temporal (Fallback)
     """
-    # INTENTO 1: Variable de Entorno en Coolify (GCP_SERVICE_ACCOUNT)
-    env_json = os.environ.get("GCP_SERVICE_ACCOUNT")
+    # INTENTO 1: Variable de Entorno en Coolify (GCP_JSON_KEY)
+    env_json = os.environ.get("GCP_JSON_KEY")
     if env_json:
         try:
             info = json.loads(env_json)
@@ -28,14 +28,14 @@ def get_creds():
             st.error(f"Error leyendo JSON de Coolify: {e}")
 
     # INTENTO 2: Secrets.toml (Local)
-    if "gcp_service_account" in st.secrets:
+    if "GCP_JSON_KEY" in st.secrets:
         try:
-            info = json.loads(st.secrets["gcp_service_account"]["json_content"])
+            info = json.loads(st.secrets["GCP_JSON_KEY"]["json_content"])
             return Credentials.from_service_account_info(info, scopes=SCOPES)
         except:
             pass
             
-    st.error("❌ No se encontraron credenciales. Configura GCP_SERVICE_ACCOUNT en Coolify.")
+    st.error("❌ No se encontraron credenciales. Configura GCP_JSON_KEY en Coolify.")
     return None
 
 def connect_to_drive():
