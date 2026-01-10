@@ -3,10 +3,9 @@ import gspread
 import pandas as pd
 import json
 import os
-import ast  # <--- ESTA ES LA CLAVE NUEVA
+import ast
 from google.oauth2.service_account import Credentials
 
-# Permisos requeridos por Google
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -14,49 +13,51 @@ SCOPES = [
 
 def get_creds():
     """
-    Obtiene las credenciales usando 'ast' para leer diccionarios de Python
-    que se hacen pasar por JSON.
+    Obtiene credenciales limpiando errores comunes de copiado/pegado
+    (espacios invisibles, comillas escapadas, etc).
     """
-    
-    # --- INTENTO 1: Variable de Entorno (Producción / Coolify) ---
+    # 1. Obtener el texto crudo de Coolify
     env_data = os.environ.get("GCP_JSON_KEY")
     
     if env_data:
         try:
-            # ESTRATEGIA 1: Intentar leer como JSON estándar (Lo ideal)
-            info = json.loads(env_data)
-        except json.JSONDecodeError:
+            # --- FASE DE LIMPIEZA PROFUNDA ---
+            # 1. Quitar espacios de no-ruptura (pasa al copiar de web)
+            clean_data = env_data.replace("\u00a0", " ")
+            # 2. Quitar barras invertidas extra (pasa al copiar de JSON stringified)
+            clean_data = clean_data.replace('\\"', '"')
+            # 3. Quitar comillas simples si las hubiera
+            clean_data = clean_data.replace("'", '"')
+            # 4. Corregir booleanos
+            clean_data = clean_data.replace("True", "true").replace("False", "false")
+            
+            # --- INTENTO DE LECTURA ---
             try:
-                # ESTRATEGIA 2 (LA SOLUCIÓN): Leer como estructura de Python
-                # Esto acepta {'type': 'service_account'} con comillas simples
-                info = ast.literal_eval(env_data)
-            except Exception as e:
-                st.error(f"❌ La llave en Coolify está corrupta o incompleta. Error: {e}")
-                # Imprimimos los primeros 50 caracteres para que veas qué está leyendo
-                st.write(f"Inicio de la llave leída: {env_data[:50]}...")
-                return None
-        
-        # Si logramos obtener 'info' (ya sea por JSON o AST), creamos la credencial
-        try:
+                # Intento A: JSON estándar
+                info = json.loads(clean_data)
+            except:
+                # Intento B: Evaluación de Python (último recurso)
+                info = ast.literal_eval(clean_data)
+                
             return Credentials.from_service_account_info(info, scopes=SCOPES)
+
         except Exception as e:
-            st.error(f"El formato es válido, pero Google lo rechaza: {e}")
+            # Solo mostramos el error, NO la llave por seguridad
+            st.error(f"❌ Error procesando la llave: {e}")
             return None
 
-    # --- INTENTO 3: Archivo Local secrets.toml (Desarrollo) ---
+    # Fallback local (tu PC)
     try:
         if st.secrets and "gcp_service_account" in st.secrets:
-            # Aquí también aplicamos la lógica doble por seguridad
-            raw_data = st.secrets["gcp_service_account"]["json_content"]
-            try:
-                info = json.loads(raw_data)
-            except:
-                info = ast.literal_eval(raw_data)
+            # Aplicamos la misma limpieza
+            raw = st.secrets["gcp_service_account"]["json_content"]
+            clean = raw.replace("\u00a0", " ").replace('\\"', '"')
+            info = json.loads(clean)
             return Credentials.from_service_account_info(info, scopes=SCOPES)
-    except Exception:
+    except:
         pass
-            
-    st.error("❌ ERROR CRÍTICO: No se encontró la variable GCP_JSON_KEY en Coolify.")
+
+    st.error("❌ No se encontró la configuración GCP_JSON_KEY en Coolify.")
     return None
 
 def connect_to_drive():
@@ -66,25 +67,19 @@ def connect_to_drive():
     return None
 
 def get_employees():
-    """
-    Descarga y limpia la base de datos de empleados.
-    """
     try:
         client = connect_to_drive()
         if not client: return pd.DataFrame()
-
-        # Nombre EXACTO de tu archivo en Drive
+        
+        # CAMBIA ESTO por el nombre exacto de tu archivo en Drive
         sheet = client.open("BD EMPLEADOS- EX EMPLEADOS").sheet1
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
-
-        # LIMPIEZA
         df.columns = [str(c).strip() for c in df.columns]
         
         if not df.empty and "NOMBRE COMPLETO" in df.columns:
             df = df[df["NOMBRE COMPLETO"] != ""]
-            
         return df
     except Exception as e:
-        st.error(f"Error conectando a la hoja de cálculo: {e}")
+        st.error(f"Error base de datos: {e}")
         return pd.DataFrame()
