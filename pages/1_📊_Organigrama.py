@@ -41,11 +41,8 @@ if df.empty:
 # --- BARRA LATERAL DE FILTROS ---
 with st.sidebar:
     st.header("🔍 Control de Visualización")
-    
-    # 1. Filtro de Estado (Fundamental para no ver ex-empleados)
     if "ESTADO" in df.columns:
         estados = list(df['ESTADO'].unique())
-        # Intentamos seleccionar "ACTIVO" por defecto
         default_estado = ["ACTIVO"] if "ACTIVO" in estados else estados
         filtro_estado = st.multiselect("Estado Contractual", estados, default=default_estado)
         df_filtered = df[df['ESTADO'].isin(filtro_estado)]
@@ -53,7 +50,6 @@ with st.sidebar:
         st.error("No se encontró la columna 'ESTADO'.")
         df_filtered = df
 
-    # 2. Filtro de Sede
     if "SEDE" in df.columns:
         opciones_sede = ["Todas las Sedes"] + list(df_filtered['SEDE'].unique())
         sede_sel = st.selectbox("Filtrar por Sede", opciones_sede)
@@ -85,7 +81,7 @@ with tab_graph:
     graph.attr('edge', color='#888888', arrowhead='vee')
 
     # Validamos que existan las columnas clave
-    if 'NOMBRE COMPLETO' in df_filtered.columns and 'CARGO' in df_filtered.columns and 'Jefe_Directo' in df_filtered.columns:
+    if 'NOMBRE COMPLETO' in df_filtered.columns and 'CARGO' in df_filtered.columns and 'JEFE_DIRECTO' in df_filtered.columns:
         
         for index, row in df_filtered.iterrows():
             nombre = str(row['NOMBRE COMPLETO']).strip()
@@ -119,14 +115,14 @@ with tab_graph:
             graph.node(nombre, label=label, fillcolor=bg_color, fontcolor=font_color)
             
             # Conexión con Jefe
-            jefe = str(row['Jefe_Directo']).strip()
+            jefe = str(row['JEFE_DIRECTO']).strip()
             # Solo conectamos si el jefe está en la lista visible
             if jefe and jefe in df_filtered['NOMBRE COMPLETO'].values and jefe != nombre:
                 graph.edge(jefe, nombre)
         
         st.graphviz_chart(graph, use_container_width=True)
     else:
-        st.error("Error: Faltan columnas clave (NOMBRE COMPLETO, CARGO, Jefe_Directo) en el Excel.")
+        st.error("Error: Faltan columnas clave (NOMBRE COMPLETO, CARGO, JEFE_DIRECTO) en el Excel.")
 
 with tab_data:
     col_sel, col_det = st.columns([1, 2])
@@ -150,7 +146,7 @@ with tab_data:
             st.markdown("#### Información de Contacto")
             st.write(f"📧 **Correo:** {datos.get('CORREO', 'No registrado')}")
             st.write(f"📱 **Celular:** {datos.get('CELULAR', 'No registrado')}")
-            st.write(f"🏢 **Centro de Trabajo:** {datos.get('Centro Trabajo', '--')}")
+            st.write(f"🏢 **Centro de Trabajo:** {datos.get('CENTRO TRABAJO', '--')}")
             
 
             with st.expander("📄 Manual de Funciones (PDF)"):

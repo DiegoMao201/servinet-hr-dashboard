@@ -47,18 +47,26 @@ def connect_to_drive():
     return None
 
 def get_employees():
-    # ... (Igual que antes) ...
     try:
         client = connect_to_drive()
-        if not client: return pd.DataFrame()
+        if not client:
+            st.error("No se pudo conectar a Google Drive.")
+            return pd.DataFrame()
         sheet = client.open_by_key(SPREADSHEET_ID).sheet1
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
-        df.columns = [str(c).strip() for c in df.columns]
+        # Limpia espacios y mayúsculas en los nombres de columnas
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        # Debug: muestra columnas encontradas
+        st.write("Columnas encontradas:", df.columns.tolist())
         if not df.empty and "NOMBRE COMPLETO" in df.columns:
             df = df[df["NOMBRE COMPLETO"] != ""]
+        else:
+            st.error("No se encontró la columna 'NOMBRE COMPLETO' en la hoja de cálculo.")
         return df
-    except: return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error leyendo empleados: {e}")
+        return pd.DataFrame()
 
 # --- NUEVAS FUNCIONES DE MEMORIA ---
 
