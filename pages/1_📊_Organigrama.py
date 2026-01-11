@@ -5,22 +5,21 @@ from modules.database import get_employees
 
 st.set_page_config(page_title="Ecosistema SERVINET", page_icon="🌐", layout="wide")
 
-# --- CARGA DE DATOS ---
+st.markdown("""
+<style>
+.metric-card {background: #f8f9fa; border-radius: 8px; padding: 10px; margin: 5px;}
+.metric-title {color: #0056b3; font-weight: bold;}
+.metric-value {font-size: 1.5em;}
+.org-label {font-size: 1.1em; color: #0056b3; font-weight: bold;}
+</style>
+""", unsafe_allow_html=True)
+
 with st.spinner("Sincronizando con Base de Datos Maestra..."):
     df = get_employees()
 
 if df.empty:
     st.warning("⚠️ No hay datos disponibles o falló la conexión. Verifica que el archivo en Drive tenga datos.")
     st.stop()
-
-# --- DASHBOARD DE KPIS ---
-st.markdown("""
-<style>
-.metric-card {background: #f8f9fa; border-radius: 8px; padding: 10px; margin: 5px;}
-.metric-title {color: #0056b3; font-weight: bold;}
-.metric-value {font-size: 1.5em;}
-</style>
-""", unsafe_allow_html=True)
 
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 total_visible = len(df)
@@ -38,16 +37,14 @@ with kpi4:
 
 st.markdown("---")
 
-# --- ORGANIGRAMA VISUAL ---
 tab_graph, tab_data = st.tabs(["📊 Mapa Jerárquico (Organigrama)", "📋 Ficha de Empleado"])
 
 with tab_graph:
     graph = graphviz.Digraph()
     graph.attr(rankdir='TB', splines='ortho', bgcolor='transparent')
-    graph.attr('node', shape='box', style='filled', fontname='Arial', fontsize='10', penwidth='0')
+    graph.attr('node', shape='box', style='filled', fontname='DejaVu', fontsize='10', penwidth='0')
     graph.attr('edge', color='#888888', arrowhead='vee')
 
-    # Agrupación por sede
     sedes = df['SEDE'].unique() if "SEDE" in df.columns else []
     for sede in sedes:
         with graph.subgraph(name=f'cluster_{sede}') as s:

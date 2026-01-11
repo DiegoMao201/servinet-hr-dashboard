@@ -1,60 +1,44 @@
 from fpdf import FPDF
+import os
+import re
 
 class PDF(FPDF):
     def header(self):
-        # self.image('assets/logo.png', 10, 8, 33) # Descomentar si tienes logo
-        self.set_font('Arial', 'B', 15)
+        self.set_font('DejaVu', 'B', 15)
         self.cell(80)
-        self.cell(30, 10, 'SERVINET - Reporte de Desempeño', 0, 0, 'C')
+        self.cell(30, 10, 'SERVINET - Manual de Funciones', 0, 0, 'C')
         self.ln(20)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+        self.set_font('DejaVu', 'I', 8)
+        self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
 
-def create_evaluation_pdf(empleado, cargo, puntaje, conclusiones, plan):
-    pdf = PDF()
-    pdf.add_page()
-    
-    # Titulo Empleado
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, f"Evaluación de: {empleado}", ln=True)
-    pdf.cell(0, 10, f"Cargo: {cargo} | Puntaje Global: {puntaje}/100", ln=True)
-    pdf.ln(10)
-    
-    # Conclusiones
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "1. Análisis de Desempeño:", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.multi_cell(0, 10, conclusiones)
-    pdf.ln(5)
-    
-    # Plan
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "2. Plan de Capacitación Sugerido:", ln=True)
-    pdf.set_font("Arial", "", 11)
-    pdf.multi_cell(0, 10, plan)
-    
-    filename = f"Evaluacion_{empleado.replace(' ', '_')}.pdf"
-    pdf.output(filename)
-    return filename
+def clean_html_to_text(html):
+    # Elimina imágenes externas y etiquetas <img>
+    html = re.sub(r'<img[^>]*>', '', html)
+    # Elimina todas las etiquetas HTML pero deja los emojis y texto
+    text = re.sub('<[^<]+?>', '', html)
+    # Opcional: reemplaza múltiples saltos de línea por uno solo
+    text = re.sub(r'\n+', '\n', text)
+    return text.strip()
 
-# --- NUEVA FUNCIÓN PARA MANUAL DE FUNCIONES ---
 def create_manual_pdf(cargo, perfil_html, empleado=None):
     """Genera un PDF profesional del manual de funciones."""
     pdf = PDF()
+    font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
+    pdf.add_font('DejaVu', '', font_path, uni=True)
+    pdf.add_font('DejaVu', 'B', font_path, uni=True)
+    pdf.add_font('DejaVu', 'I', font_path, uni=True)
+    pdf.set_font("DejaVu", "B", 14)
     pdf.add_page()
-    pdf.set_font("Arial", "B", 14)
     title = f"Manual de Funciones: {cargo}"
     if empleado:
         title += f" - {empleado}"
     pdf.cell(0, 10, title, ln=True, align='C')
     pdf.ln(5)
-    pdf.set_font("Arial", "", 11)
-    # Limpia el HTML a texto plano simple (puedes mejorar con html2text si lo deseas)
-    import re
-    text = re.sub('<[^<]+?>', '', perfil_html)
+    pdf.set_font("DejaVu", "", 11)
+    text = clean_html_to_text(perfil_html)
     pdf.multi_cell(0, 10, text)
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
     pdf.output(filename)

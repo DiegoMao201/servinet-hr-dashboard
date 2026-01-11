@@ -51,7 +51,6 @@ if seleccion:
 
         if manual_file_id and not force_regen:
             st.success("Manual ya generado y guardado en Drive. Mostrando versión almacenada.")
-            # Descarga el PDF y muestra botón de descarga
             pdf_bytes = download_manual_from_drive(manual_file_id)
             st.download_button(
                 label="📥 Descargar Manual PDF",
@@ -59,13 +58,10 @@ if seleccion:
                 file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
                 mime="application/pdf"
             )
-            st.info("Manual disponible solo en PDF. Si deseas ver el HTML, fuerza la generación.")
         else:
             if st.button("✨ Generar Manual de Funciones Personalizado") or force_regen:
                 with st.spinner("Redactando documento oficial..."):
                     perfil_html = generate_role_profile(cargo, st.session_state["company_context"], force=force_regen)
-                    st.markdown(perfil_html, unsafe_allow_html=True)
-                    # Genera PDF y súbelo a Drive
                     pdf_filename = create_manual_pdf(cargo, perfil_html, empleado=seleccion)
                     upload_manual_to_drive(pdf_filename, manuals_folder_id)
                     with open(pdf_filename, "rb") as f:
