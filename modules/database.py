@@ -14,7 +14,7 @@ SCOPES = [
 ]
 
 # --- TU ID DE HOJA DE CÁLCULO ---
-SPREADSHEET_ID = "1gM534p1yT-T-lC_j6zOq-..." # <--- ¡ASEGÚRATE DE QUE ESTE SEA EL ID CORRECTO!
+SPREADSHEET_ID = "1eHDMFzGu0OswhzFITGU2czlaqd2xvBsy5gYZ0hB_Rqo" # <--- ¡ASEGÚRATE DE QUE ESTE SEA EL ID CORRECTO!
 
 def get_creds():
     encoded_key = os.environ.get("GCP_JSON_KEY")
