@@ -13,20 +13,33 @@ SCOPES = [
 ]
 
 def get_creds():
-    """Obtiene credenciales desde secrets o variables de entorno."""
+    """Obtiene credenciales desde secrets o variables de entorno, soportando JSON plano o base64."""
+    import base64, ast
     try:
         # Intento 1: Local (secrets.toml)
         json_content = st.secrets["gcp_service_account"]["json_content"]
         info = json.loads(json_content)
     except Exception:
         # Intento 2: Servidor (Coolify Environment Variable)
-        # La variable en Coolify se debe llamar: GCP_JSON_KEY
         json_content = os.environ.get("GCP_JSON_KEY")
         if not json_content:
             st.error("⚠️ No se encontraron las credenciales de Google (GCP_JSON_KEY).")
             return None
-        info = json.loads(json_content)
-        
+        json_content = json_content.strip()
+        try:
+            # Si no es JSON plano, intenta decodificar base64
+            if not json_content.startswith('{'):
+                decoded_bytes = base64.b64decode(json_content)
+                decoded_str = decoded_bytes.decode("utf-8")
+                info = json.loads(decoded_str)
+            else:
+                try:
+                    info = json.loads(json_content)
+                except:
+                    info = ast.literal_eval(json_content)
+        except Exception as e:
+            st.error(f"Error decodificando credenciales: {e}")
+            return None
     creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     return creds
 

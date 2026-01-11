@@ -52,7 +52,8 @@ def get_employees():
         if not client:
             st.error("No se pudo conectar a Google Drive.")
             return pd.DataFrame()
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+        spreadsheet = client.open_by_key(SPREADSHEET_ID)
+        sheet = spreadsheet.worksheet("BD EMPLEADOS")
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
         # Limpia espacios y mayúsculas en los nombres de columnas

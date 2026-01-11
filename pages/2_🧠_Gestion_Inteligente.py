@@ -9,6 +9,7 @@ from modules.drive_manager import (
     upload_manual_to_drive
 )
 from modules.pdf_generator import create_manual_pdf
+import plotly.figure_factory as ff
 
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
@@ -118,5 +119,15 @@ if seleccion:
                 with st.spinner("La IA está diagnosticando estrés, competencias y creando plan de formación..."):
                     analisis = analyze_results(st.session_state["respuestas_finales"])
                     st.markdown(analisis)
+                    
+                    # Ejemplo de tareas de capacitación
+                    tasks = [
+                        dict(Task="Curso de Atención al Cliente", Start='2024-07-01', Finish='2024-07-05', Resource='Capacitación'),
+                        dict(Task="Certificación Técnica", Start='2024-07-10', Finish='2024-07-15', Resource='Técnico'),
+                        dict(Task="Evaluación Final", Start='2024-07-20', Finish='2024-07-21', Resource='Evaluación')
+                    ]
+
+                    fig = ff.create_gantt(tasks, index_col='Resource', show_colorbar=True, group_tasks=True)
+                    st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Primero debes completar la evaluación en la pestaña anterior.")
