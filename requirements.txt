@@ -8,7 +8,7 @@ google-api-python-client
 oauth2client
 graphviz
 openai
-fpdf
+fpdf2>=2.7.6
 plotly
 PyPDF2
 python-docx
