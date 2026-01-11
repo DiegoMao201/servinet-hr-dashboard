@@ -1,5 +1,6 @@
 import streamlit as st
 from modules.auth import check_password
+import os
 
 # Configuración de página
 st.set_page_config(
@@ -34,3 +35,6 @@ with col2:
 
 st.markdown("---")
 st.caption("Desarrollado para SERVINET - Versión 1.0")
+
+st.write("GCP_JSON_KEY exists:", bool(os.environ.get("GCP_JSON_KEY")))
+st.write("OPENAI_API_KEY exists:", bool(os.environ.get("OPENAI_API_KEY")))
