@@ -12,22 +12,21 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+# Cambia esto por el ID de tu Unidad Compartida
+SHARED_DRIVE_ID = os.environ.get("SHARED_DRIVE_ID") or "TU_ID_UNIDAD_COMPARTIDA"
+
 def get_creds():
-    """Obtiene credenciales desde secrets o variables de entorno, soportando JSON plano o base64."""
     import base64, ast
     try:
-        # Intento 1: Local (secrets.toml)
         json_content = st.secrets["gcp_service_account"]["json_content"]
         info = json.loads(json_content)
     except Exception:
-        # Intento 2: Servidor (Coolify Environment Variable)
         json_content = os.environ.get("GCP_JSON_KEY")
         if not json_content:
             st.error("⚠️ No se encontraron las credenciales de Google (GCP_JSON_KEY).")
             return None
         json_content = json_content.strip()
         try:
-            # Si no es JSON plano, intenta decodificar base64
             if not json_content.startswith('{'):
                 decoded_bytes = base64.b64decode(json_content)
                 decoded_str = decoded_bytes.decode("utf-8")
@@ -79,40 +78,52 @@ def upload_pdf(file_path, folder_id=None):
 
 # --- NUEVAS FUNCIONES PARA MANUALES DE FUNCIONES ---
 def get_or_create_manuals_folder():
-    """Busca o crea la subcarpeta 'MANUALES_FUNCIONES' en Drive."""
+    """Busca o crea la subcarpeta 'MANUALES_FUNCIONES' en Mi unidad."""
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     folder_name = "MANUALES_FUNCIONES"
-    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
+    query = (
+        f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
+        f"and trashed=false"
+    )
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)"
+    ).execute()
     folders = results.get('files', [])
     if folders:
         return folders[0]['id']
-    # Si no existe, la crea
+    # Si no existe, la crea en Mi unidad
     file_metadata = {
         'name': folder_name,
         'mimeType': 'application/vnd.google-apps.folder'
     }
-    folder = service.files().create(body=file_metadata, fields='id').execute()
+    folder = service.files().create(
+        body=file_metadata,
+        fields='id'
+    ).execute()
     return folder.get('id')
 
 def find_manual_in_drive(cargo, folder_id):
-    """Busca si ya existe un manual PDF para el cargo en la subcarpeta."""
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
-    query = f"'{folder_id}' in parents and name='{filename}' and trashed=false"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
+    query = (
+        f"'{folder_id}' in parents and name='{filename}' and trashed=false"
+    )
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)"
+    ).execute()
     files = results.get('files', [])
     if files:
         return files[0]['id']
     return None
 
 def download_manual_from_drive(file_id):
-    """Descarga el PDF del manual desde Drive y lo retorna como bytes."""
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
-    request = service.files().get_media(fileId=file_id)
+    request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
     import io
     fh = io.BytesIO()
     from googleapiclient.http import MediaIoBaseDownload
@@ -124,7 +135,6 @@ def download_manual_from_drive(file_id):
     return fh.read()
 
 def upload_manual_to_drive(file_path, folder_id):
-    """Sube el PDF generado a la subcarpeta de manuales."""
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
     from googleapiclient.http import MediaFileUpload
@@ -133,9 +143,15 @@ def upload_manual_to_drive(file_path, folder_id):
         'parents': [folder_id]
     }
     media = MediaFileUpload(file_path, mimetype='application/pdf')
-    file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
-    return file.get('id')
+    try:
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id',
+            supportsAllDrives=True
+        ).execute()
+        return file.get('id')
+    except Exception as e:
+        st.error(f"Error subiendo a Drive: {e}")
+        st.info("¿La cuenta de servicio tiene permisos de 'Administrador de contenido' en la Unidad Compartida?")
+        return None

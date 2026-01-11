@@ -2,32 +2,33 @@
 __pycache__/
 *.py[cod]
 *.so
-*.egg
-*.egg-info/
-dist/
-build/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Credenciales Google
+service_account.json
+client_secret.json
+token.json
+
+# Archivos temporales
 *.log
+*.tmp
+*.bak
 
 # VSCode
 .vscode/
 
-# Streamlit secrets
-.streamlit/secrets.toml
+# Docker
+*.db
 
-# Entornos virtuales
-venv/
-env/
-ENV/
-.venv/
-
-# Archivos temporales
-*.tmp
-*.temp
-*.bak
-*.swp
-
-# PDFs de prueba
-test_dejavu.pdf
+# Otros
+.env
 
 # Sistema operativo
 .DS_Store
