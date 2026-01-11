@@ -39,3 +39,23 @@ def create_evaluation_pdf(empleado, cargo, puntaje, conclusiones, plan):
     filename = f"Evaluacion_{empleado.replace(' ', '_')}.pdf"
     pdf.output(filename)
     return filename
+
+# --- NUEVA FUNCIÓN PARA MANUAL DE FUNCIONES ---
+def create_manual_pdf(cargo, perfil_html, empleado=None):
+    """Genera un PDF profesional del manual de funciones."""
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    title = f"Manual de Funciones: {cargo}"
+    if empleado:
+        title += f" - {empleado}"
+    pdf.cell(0, 10, title, ln=True, align='C')
+    pdf.ln(5)
+    pdf.set_font("Arial", "", 11)
+    # Limpia el HTML a texto plano simple (puedes mejorar con html2text si lo deseas)
+    import re
+    text = re.sub('<[^<]+?>', '', perfil_html)
+    pdf.multi_cell(0, 10, text)
+    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
+    pdf.output(filename)
+    return filename

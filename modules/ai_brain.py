@@ -15,25 +15,22 @@ if api_key:
 else:
     client = None
 
-def generate_role_profile(cargo, company_context):
+def generate_role_profile(cargo, company_context, force=False):
     """
     Crea el Manual de Funciones personalizado.
-    Modelo: gpt-4o-mini (Económico y Rápido)
+    Si force=False, solo genera si no existe (la lógica de chequeo se maneja fuera de esta función).
     """
-    if not client: return "⚠️ Error: Falta configurar OPENAI_API_KEY."
+    if not client:
+        return "⚠️ Error: Falta configurar OPENAI_API_KEY."
 
     prompt = f"""
     Actúa como un Director de RRHH experto en normas ISO.
-    
     CONTEXTO DE LA EMPRESA (Manuales):
-    {company_context[:20000]} 
-    
+    {company_context[:20000]}
     TAREA:
     Genera un perfil de cargo profesional para: "{cargo}".
-    
     El formato debe ser HTML limpio (sin ```html ni markdown) para mostrar en web.
     Usa iconos y un diseño corporativo moderno (Azul/Gris).
-    
     SECCIONES OBLIGATORIAS:
     1. 🎯 Objetivo del Cargo (Estratégico).
     2. 📜 Funciones Principales (Lista con viñetas).
@@ -41,14 +38,12 @@ def generate_role_profile(cargo, company_context):
     4. 💡 Habilidades Blandas Requeridas.
     5. 📊 KPIs Sugeridos.
     """
-    
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # <--- AQUÍ ESTÁ EL AHORRO
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3
         )
-        # Limpieza básica por si la IA pone bloques de código
         content = response.choices[0].message.content
         return content.replace("```html", "").replace("```", "")
     except Exception as e:

@@ -2,6 +2,13 @@ import streamlit as st
 from modules.database import get_employees
 from modules.document_reader import get_company_context
 from modules.ai_brain import generate_role_profile, generate_evaluation, analyze_results
+from modules.drive_manager import (
+    get_or_create_manuals_folder,
+    find_manual_in_drive,
+    download_manual_from_drive,
+    upload_manual_to_drive
+)
+from modules.pdf_generator import create_manual_pdf
 
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
@@ -32,13 +39,42 @@ if seleccion:
     
     tab1, tab2, tab3 = st.tabs(["📄 Hoja de Vida de Funciones", "📝 Evaluación IA", "📈 Resultados y Capacitación"])
     
+
     # --- TAB 1: PERFIL DE CARGO ---
     with tab1:
-        if st.button("✨ Generar Manual de Funciones Personalizado"):
-            with st.spinner("Redactando documento oficial..."):
-                perfil_html = generate_role_profile(cargo, st.session_state["company_context"])
-                st.markdown(perfil_html, unsafe_allow_html=True)
-                # Aquí podrías agregar un botón para descargar en PDF
+        st.write("Manual de Funciones generado por IA y almacenado en Drive.")
+        manuals_folder_id = get_or_create_manuals_folder()
+        manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
+        force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", value=False)
+        perfil_html = None
+
+        if manual_file_id and not force_regen:
+            st.success("Manual ya generado y guardado en Drive. Mostrando versión almacenada.")
+            # Descarga el PDF y muestra botón de descarga
+            pdf_bytes = download_manual_from_drive(manual_file_id)
+            st.download_button(
+                label="📥 Descargar Manual PDF",
+                data=pdf_bytes,
+                file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
+                mime="application/pdf"
+            )
+            st.info("Manual disponible solo en PDF. Si deseas ver el HTML, fuerza la generación.")
+        else:
+            if st.button("✨ Generar Manual de Funciones Personalizado") or force_regen:
+                with st.spinner("Redactando documento oficial..."):
+                    perfil_html = generate_role_profile(cargo, st.session_state["company_context"], force=force_regen)
+                    st.markdown(perfil_html, unsafe_allow_html=True)
+                    # Genera PDF y súbelo a Drive
+                    pdf_filename = create_manual_pdf(cargo, perfil_html, empleado=seleccion)
+                    upload_manual_to_drive(pdf_filename, manuals_folder_id)
+                    with open(pdf_filename, "rb") as f:
+                        st.download_button(
+                            label="📥 Descargar Manual PDF",
+                            data=f.read(),
+                            file_name=pdf_filename,
+                            mime="application/pdf"
+                        )
+                    st.success("Manual generado y guardado en Drive.")
                 
     # --- TAB 2: EVALUACIÓN ---
     with tab2:

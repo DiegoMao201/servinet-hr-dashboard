@@ -152,8 +152,22 @@ with tab_data:
             st.write(f"📱 **Celular:** {datos.get('CELULAR', 'No registrado')}")
             st.write(f"🏢 **Centro de Trabajo:** {datos.get('Centro Trabajo', '--')}")
             
-            with st.expander("🔐 Datos Privados (Nómina/RRHH)"):
-                st.write(f"**Cuenta:** {datos.get('BANCO', '')} - {datos.get('CUENTA BANCOLOMBIA', '')}")
-                st.write(f"**EPS:** {datos.get('Salud', '')}")
-                st.write(f"**AFP:** {datos.get('Pensión', '')}")
-                st.write(f"**Cumpleaños:** {datos.get('FECHA NACIMIENTO ', '')}")
+
+            with st.expander("📄 Manual de Funciones (PDF)"):
+                from modules.drive_manager import (
+                    get_or_create_manuals_folder,
+                    find_manual_in_drive,
+                    download_manual_from_drive
+                )
+                manuals_folder_id = get_or_create_manuals_folder()
+                manual_file_id = find_manual_in_drive(datos.get('CARGO', ''), manuals_folder_id)
+                if manual_file_id:
+                    pdf_bytes = download_manual_from_drive(manual_file_id)
+                    st.download_button(
+                        label="📥 Descargar Manual PDF",
+                        data=pdf_bytes,
+                        file_name=f"Manual_{datos.get('CARGO', '').replace(' ', '_').upper()}.pdf",
+                        mime="application/pdf"
+                    )
+                else:
+                    st.info("No hay manual de funciones generado para este cargo aún.")

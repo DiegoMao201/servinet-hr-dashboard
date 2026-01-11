@@ -63,3 +63,66 @@ def upload_pdf(file_path, folder_id=None):
     except Exception as e:
         st.error(f"Error subiendo a Drive: {e}")
         return None
+
+# --- NUEVAS FUNCIONES PARA MANUALES DE FUNCIONES ---
+def get_or_create_manuals_folder():
+    """Busca o crea la subcarpeta 'MANUALES_FUNCIONES' en Drive."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    folder_name = "MANUALES_FUNCIONES"
+    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    folders = results.get('files', [])
+    if folders:
+        return folders[0]['id']
+    # Si no existe, la crea
+    file_metadata = {
+        'name': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder'
+    }
+    folder = service.files().create(body=file_metadata, fields='id').execute()
+    return folder.get('id')
+
+def find_manual_in_drive(cargo, folder_id):
+    """Busca si ya existe un manual PDF para el cargo en la subcarpeta."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
+    query = f"'{folder_id}' in parents and name='{filename}' and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    files = results.get('files', [])
+    if files:
+        return files[0]['id']
+    return None
+
+def download_manual_from_drive(file_id):
+    """Descarga el PDF del manual desde Drive y lo retorna como bytes."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    request = service.files().get_media(fileId=file_id)
+    import io
+    fh = io.BytesIO()
+    from googleapiclient.http import MediaIoBaseDownload
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    fh.seek(0)
+    return fh.read()
+
+def upload_manual_to_drive(file_path, folder_id):
+    """Sube el PDF generado a la subcarpeta de manuales."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    from googleapiclient.http import MediaFileUpload
+    file_metadata = {
+        'name': file_path.split("/")[-1],
+        'parents': [folder_id]
+    }
+    media = MediaFileUpload(file_path, mimetype='application/pdf')
+    file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id'
+    ).execute()
+    return file.get('id')
