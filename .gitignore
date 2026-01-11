@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# VSCode
+.vscode/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# PDFs de prueba
+test_dejavu.pdf
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Credenciales
+*.json
