@@ -10,6 +10,7 @@ from modules.drive_manager import (
 )
 from modules.pdf_generator import create_manual_pdf
 import plotly.figure_factory as ff
+import os
 
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
@@ -68,10 +69,15 @@ if seleccion:
                         st.download_button(
                             label="📥 Descargar Manual PDF",
                             data=f.read(),
-                            file_name=pdf_filename,
+                            file_name=os.path.basename(pdf_filename),
                             mime="application/pdf"
                         )
                     st.success("Manual generado y guardado en Drive.")
+                    # Limpia el archivo temporal
+                    try:
+                        os.remove(pdf_filename)
+                    except Exception:
+                        pass
                 
     # --- TAB 2: EVALUACIÓN ---
     with tab2:

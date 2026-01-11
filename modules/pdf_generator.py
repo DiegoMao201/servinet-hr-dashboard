@@ -26,6 +26,7 @@ def clean_html_to_text(html):
 def create_manual_pdf(cargo, perfil_html, empleado=None):
     """Genera un PDF profesional del manual de funciones."""
     pdf = PDF()
+    # Ruta absoluta para la fuente
     font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
     pdf.add_font('DejaVu', '', font_path, uni=True)
     pdf.add_font('DejaVu', 'B', font_path, uni=True)
@@ -40,6 +41,8 @@ def create_manual_pdf(cargo, perfil_html, empleado=None):
     pdf.set_font("DejaVu", "", 11)
     text = clean_html_to_text(perfil_html)
     pdf.multi_cell(0, 10, text)
+    # Guarda el PDF en una ruta absoluta temporal
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
-    pdf.output(filename)
-    return filename
+    abs_path = os.path.abspath(filename)
+    pdf.output(abs_path)
+    return abs_path
