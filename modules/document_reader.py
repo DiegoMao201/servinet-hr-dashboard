@@ -13,7 +13,6 @@ def get_drive_service():
     return None
 
 def download_file_content(file_id):
-    """Descarga un archivo de Drive a la memoria RAM."""
     service = get_drive_service()
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
@@ -25,7 +24,6 @@ def download_file_content(file_id):
     return fh
 
 def read_pdf(file_id):
-    """Extrae texto de un PDF en Drive."""
     try:
         fh = download_file_content(file_id)
         reader = PyPDF2.PdfReader(fh)
@@ -37,7 +35,6 @@ def read_pdf(file_id):
         return f"Error leyendo PDF: {e}"
 
 def read_docx(file_id):
-    """Extrae texto de un Word en Drive."""
     try:
         fh = download_file_content(file_id)
         doc = Document(fh)
@@ -46,20 +43,15 @@ def read_docx(file_id):
     except Exception as e:
         return f"Error leyendo DOCX: {e}"
 
-def get_company_context():
+def get_company_context(folder_id):
     """
-    Esta función es CLAVE. Busca automáticamente los manuales en tu carpeta
-    y crea un 'Cerebro' de texto para la IA.
+    Busca manuales en la carpeta indicada y crea el contexto para la IA.
     """
     service = get_drive_service()
-    # Buscamos archivos en la carpeta (Ajusta el query si es necesario)
-    # Aquí buscamos por nombre parcial para asegurar que los encuentre
-    query = "name contains 'MANUAL' or name contains 'Estructura'"
+    query = f"('{folder_id}' in parents) and (name contains 'MANUAL' or name contains 'Estructura')"
     results = service.files().list(q=query, fields="files(id, name, mimeType)").execute()
     files = results.get('files', [])
-
     full_context = ""
-    
     for file in files:
         st.toast(f"🧠 Analizando documento: {file['name']}...")
         if "pdf" in file['mimeType']:
@@ -68,5 +60,4 @@ def get_company_context():
         elif "word" in file['mimeType'] or "document" in file['mimeType']:
             full_context += f"\n--- CONTENIDO DE {file['name']} ---\n"
             full_context += read_docx(file['id'])
-            
     return full_context

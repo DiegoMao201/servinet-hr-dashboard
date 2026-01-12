@@ -18,11 +18,13 @@ st.image("logo_servinet.jpg", width=120)
 st.title("🧠 Talent AI - SERVINET")
 st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
 
+manuals_folder_id = "1nmKGvJusOG13cePPwTfrYSxrPwXgwEcZ"
+
 # 1. Cargar contexto (Leemos los PDFs y Words solo una vez)
 if "company_context" not in st.session_state:
     with st.spinner("🤖 La IA está leyendo tus manuales y PDFs... (Esto toma unos segundos)"):
         try:
-            st.session_state["company_context"] = get_company_context()
+            st.session_state["company_context"] = get_company_context(manuals_folder_id)
             st.success("¡Contexto cargado! La IA ya conoce a Servinet.")
         except Exception as e:
             st.error(f"Error leyendo manuales: {e}")
@@ -41,7 +43,6 @@ with tab1:
     if seleccion:
         datos = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
         cargo = datos['CARGO']
-        manuals_folder_id = get_or_create_manuals_folder()
         manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
 
         st.subheader(f"Manual de Funciones para: {cargo}")

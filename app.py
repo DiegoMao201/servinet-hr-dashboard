@@ -15,7 +15,7 @@ if not check_password():
 
 # 2. Bienvenida
 st.title("📡 Panel de Control RRHH - SERVINET")
-st.image("logo-servinet.png", width=180)
+st.image("logo_servinet.jpg", width=180)
 st.markdown("---")
 
 col1, col2 = st.columns(2)

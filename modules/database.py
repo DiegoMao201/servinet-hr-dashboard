@@ -1,21 +1,18 @@
 import streamlit as st
 import gspread
 import pandas as pd
-import json
 import os
+import pickle
 import base64
-import ast
-from datetime import datetime
-from google.oauth2.service_account import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
 
 def get_creds():
-    import pickle, base64
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    SCOPES = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
     creds = None
     token_b64 = os.environ.get("GOOGLE_TOKEN_PICKLE_B64")
     if token_b64:
