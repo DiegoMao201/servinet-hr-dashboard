@@ -15,10 +15,10 @@ if df.empty:
     st.warning("No hay datos disponibles o falló la conexión. Verifica que el archivo en Drive tenga datos.")
     st.stop()
 
-# Filtros avanzados
-sedes = sorted(df['SEDE'].dropna().unique())
-departamentos = sorted(df['DEPARTAMENTO'].dropna().unique())
-cargos = sorted(df['CARGO'].dropna().unique())
+# Filtros avanzados (robustos)
+sedes = sorted(df['SEDE'].dropna().unique()) if 'SEDE' in df.columns else []
+departamentos = sorted(df['DEPARTAMENTO'].dropna().unique()) if 'DEPARTAMENTO' in df.columns else []
+cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 
 col1, col2, col3 = st.columns(3)
 filtro_sede = col1.selectbox("Filtrar por sede", ["Todas"] + sedes)
@@ -26,11 +26,11 @@ filtro_dep = col2.selectbox("Filtrar por departamento", ["Todos"] + departamento
 filtro_cargo = col3.selectbox("Filtrar por cargo", ["Todos"] + cargos)
 
 df_filtrado = df.copy()
-if filtro_sede != "Todas":
+if filtro_sede != "Todas" and 'SEDE' in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado['SEDE'] == filtro_sede]
-if filtro_dep != "Todos":
+if filtro_dep != "Todos" and 'DEPARTAMENTO' in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado['DEPARTAMENTO'] == filtro_dep]
-if filtro_cargo != "Todos":
+if filtro_cargo != "Todos" and 'CARGO' in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado['CARGO'] == filtro_cargo]
 
 empleado = st.selectbox("Seleccionar empleado", df_filtrado['NOMBRE COMPLETO'].unique())
