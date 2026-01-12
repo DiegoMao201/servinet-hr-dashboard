@@ -8,38 +8,39 @@ import ast
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
+def get_creds():
+    import pickle, base64
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = None
+    token_b64 = os.environ.get("GOOGLE_TOKEN_PICKLE_B64")
+    if token_b64:
+        creds = pickle.loads(base64.b64decode(token_b64))
+    elif os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            secret_b64 = os.environ.get("GOOGLE_CLIENT_SECRET_JSON_B64")
+            if secret_b64:
+                secret_json = base64.b64decode(secret_b64).decode("utf-8")
+                with open("client_secret.json", "w", encoding="utf-8") as f:
+                    f.write(secret_json)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "client_secret.json", SCOPES)
+            creds = flow.run_console()
+            with open('token.pickle', 'wb') as token:
+                pickle.dump(creds, token)
+    return creds
 
 # --- TU ID DE HOJA DE CÁLCULO ---
 SPREADSHEET_ID = "1eHDMFzGu0OswhzFITGU2czlaqd2xvBsy5gYZ0hB_Rqo" # <--- ¡ASEGÚRATE DE QUE ESTE SEA EL ID CORRECTO!
-
-def get_creds():
-    encoded_key = os.environ.get("GCP_JSON_KEY")
-    # ... (El resto de la función de credenciales igual que antes) ...
-    if not encoded_key and st.secrets and "gcp_service_account" in st.secrets:
-        try:
-            info = json.loads(st.secrets["gcp_service_account"]["json_content"])
-            return Credentials.from_service_account_info(info, scopes=SCOPES)
-        except:
-            pass
-
-    if encoded_key:
-        try:
-            encoded_key = encoded_key.strip()
-            if "{" not in encoded_key:
-                decoded_bytes = base64.b64decode(encoded_key)
-                decoded_str = decoded_bytes.decode("utf-8")
-                info = json.loads(decoded_str)
-            else:
-                try: info = json.loads(encoded_key)
-                except: info = ast.literal_eval(encoded_key)
-            return Credentials.from_service_account_info(info, scopes=SCOPES)
-        except:
-            return None
-    return None
 
 def connect_to_drive():
     creds = get_creds()
