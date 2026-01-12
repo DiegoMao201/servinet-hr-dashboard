@@ -67,6 +67,22 @@ def get_employees():
         st.error(f"Error leyendo empleados: {e}")
         return pd.DataFrame()
 
+def get_evaluaciones():
+    try:
+        client = connect_to_drive()
+        if not client:
+            st.error("No se pudo conectar a Google Drive.")
+            return pd.DataFrame()
+        spreadsheet = client.open_by_key(SPREADSHEET_ID)
+        sheet = spreadsheet.worksheet("2_evaluaciones")
+        data = sheet.get_all_records()
+        df = pd.DataFrame(data)
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        return df
+    except Exception as e:
+        st.error(f"Error leyendo hoja de evaluaciones: {e}")
+        return pd.DataFrame()
+
 # --- NUEVAS FUNCIONES DE MEMORIA ---
 
 def init_memory():
