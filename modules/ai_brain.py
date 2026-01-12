@@ -23,21 +23,22 @@ def generate_role_profile(cargo, company_context, force=False):
         return "⚠️ Error: Falta configurar OPENAI_API_KEY."
 
     prompt = f"""
-    Eres un experto en Recursos Humanos y Normas ISO, con experiencia en empresas de telecomunicaciones como SERVINET.
+    Eres consultor senior en Recursos Humanos, experto en Normas ISO y gestión de talento en empresas de telecomunicaciones como SERVINET.
     CONTEXTO DE LA EMPRESA (Manuales y cultura):
     {company_context[:20000]}
     TAREA:
-    Genera un manual de funciones profesional para el cargo: "{cargo}".
-    El formato debe ser HTML limpio, visualmente atractivo y corporativo (usa colores azul, gris, amarillo, tablas, listas, iconos y títulos claros).
-    Incluye las siguientes secciones:
-    1. 🎯 Objetivo del Cargo (estratégico, 2-3 líneas).
+    Redacta un manual de funciones empresarial y profesional para el cargo: "{cargo}".
+    El resultado debe ser HTML limpio, visualmente atractivo y corporativo, usando colores azul, gris y amarillo, tablas, listas, iconos y títulos claros.
+    Estructura el documento en las siguientes secciones (usa emojis y títulos grandes):
+    1. 🎯 Objetivo del Cargo (estratégico, 2-3 líneas, resaltado).
     2. 📜 Funciones Principales (lista con viñetas y subtítulos si aplica).
-    3. 🔄 Procesos Clave (tabla si es posible, o lista).
-    4. 💡 Habilidades Blandas Requeridas (lista).
-    5. 📊 KPIs Sugeridos (tabla).
-    6. 🏅 Perfil Ideal (formación, experiencia, competencias).
-    7. 📝 Observaciones y recomendaciones.
-    Usa títulos grandes, separadores y resalta los puntos clave.
+    3. 🔄 Procesos Clave (tabla o lista, con breve descripción de cada proceso).
+    4. 💡 Habilidades Blandas Requeridas (lista con ejemplos).
+    5. 📊 KPIs Sugeridos (tabla con nombre del KPI, objetivo y frecuencia de medición).
+    6. 🏅 Perfil Ideal (formación, experiencia, competencias, en tabla o lista).
+    7. 📝 Observaciones y recomendaciones (resalta sugerencias de mejora y puntos críticos).
+    Usa títulos grandes, separadores visuales, y resalta los puntos clave con colores corporativos.
+    No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
     """
     try:
         response = client.chat.completions.create(

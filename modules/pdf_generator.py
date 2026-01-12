@@ -1,8 +1,8 @@
 from fpdf import FPDF
-import os
-import re
 from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
+import os
+import re
 
 class PDF(FPDF):
     def header(self):
@@ -54,6 +54,14 @@ def create_manual_pdf_from_html(html_content, cargo, empleado=None):
     abs_path = os.path.abspath(filename)
     HTML(string=html_content).write_pdf(abs_path)
     return abs_path
+
+def extract_section(html, section_title):
+    # Busca el bloque por título (ejemplo simple, mejora según tu IA)
+    pattern = rf"<h2.*?>.*?{section_title}.*?</h2>(.*?)<h2"
+    match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return ""
 
 def create_manual_pdf_from_template(data, cargo, empleado=None):
     template_dir = os.path.dirname(__file__)
