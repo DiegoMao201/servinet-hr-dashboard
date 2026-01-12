@@ -12,7 +12,6 @@ if worksheet:
     data = worksheet.get_all_records()
     df_eval = pd.DataFrame(data)
     df_eval = df_eval[df_eval['TIPO_DOC'] == "EVALUACION"]
-    # Extrae puntaje
     import re
     def extraer_puntaje(texto):
         m = re.search(r"(\d{1,3})\s*%", texto)

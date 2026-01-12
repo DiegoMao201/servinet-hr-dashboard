@@ -21,7 +21,6 @@ st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados e
 
 manuals_folder_id = "1nmKGvJusOG13cePPwTfrYSxrPwXgwEcZ"
 
-# 1. Cargar contexto (Leemos los PDFs y Words solo una vez)
 if "company_context" not in st.session_state:
     with st.spinner("🤖 La IA está leyendo tus manuales y PDFs... (Esto toma unos segundos)"):
         try:
@@ -31,7 +30,6 @@ if "company_context" not in st.session_state:
             st.error(f"Error leyendo manuales: {e}")
             st.stop()
 
-# 2. Seleccionar Empleado
 df = get_employees()
 empleados = df['NOMBRE COMPLETO'].unique()
 seleccion = st.selectbox("Seleccionar Colaborador:", empleados)
@@ -39,6 +37,11 @@ seleccion = st.selectbox("Seleccionar Colaborador:", empleados)
 force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", value=False)
 
 tab1, tab2, tab3 = st.tabs(["📄 Manual de Funciones", "📝 Evaluación de Desempeño", "📊 Resultados"])
+
+def get_section(html, keyword):
+    pattern = rf"{keyword}(.*?)(<h2|<div class=\"section-title\"|$)"
+    match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+    return match.group(1).strip() if match else ""
 
 with tab1:
     if seleccion:
@@ -64,14 +67,6 @@ with tab1:
             if st.button("✨ Generar Manual de Funciones Personalizado"):
                 with st.spinner("Redactando documento oficial..."):
                     perfil_html = generate_role_profile(cargo, st.session_state["company_context"], force=force_regen)
-
-                    # Extrae secciones del HTML generado por la IA
-                    def get_section(html, keyword):
-                        # Busca por título o emoji
-                        pattern = rf"{keyword}(.*?)(<h2|<div class=\"section-title\"|$)"
-                        match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
-                        return match.group(1).strip() if match else ""
-
                     datos_manual = {
                         "empresa": "GRUPO SERVINET",
                         "logo_url": os.path.abspath("logo_servinet.jpg"),
@@ -84,7 +79,6 @@ with tab1:
                         "fecha_emision": pd.Timestamp.now().strftime("%d/%m/%Y"),
                         "empleado": seleccion,
                         "cargo": cargo,
-                        # Secciones extraídas
                         "objetivo_cargo": get_section(perfil_html, "🎯"),
                         "funciones_principales": get_section(perfil_html, "📜"),
                         "procesos_clave": get_section(perfil_html, "🔄"),
@@ -107,60 +101,3 @@ with tab1:
                         os.remove(pdf_filename)
                     except Exception:
                         pass
-
-with tab2:
-    st.write("Aquí podrás realizar la evaluación de desempeño y ver el plan de capacitación generado por IA.")
-    # --- TAB 2: EVALUACIÓN ---
-    with tab2:
-        st.write("Esta evaluación se genera en tiempo real según el manual de procesos.")
-        if st.button("🚀 Iniciar Evaluación de Desempeño"):
-            with st.spinner("Diseñando preguntas estratégicas..."):
-                evaluacion = generate_evaluation(cargo, st.session_state["company_context"])
-                st.session_state[f"eval_{seleccion}"] = evaluacion
-        
-        # Si ya generamos la evaluación, mostrar el formulario
-        if f"eval_{seleccion}" in st.session_state:
-            data_eval = st.session_state[f"eval_{seleccion}"]
-            
-            with st.form("form_evaluacion"):
-                st.subheader("Competencias Técnicas")
-                respuestas_tec = {}
-                for p in data_eval["preguntas_tecnicas"]:
-                    respuestas_tec[p] = st.text_area(p)
-                
-                st.subheader("Competencias Blandas")
-                respuestas_soft = {}
-                for p in data_eval["preguntas_blandas"]:
-                    respuestas_soft[p] = st.text_area(p)
-                
-                submitted = st.form_submit_button("✅ Finalizar y Analizar")
-                
-                if submitted:
-                    # Guardamos todo en un objeto para que la IA lo analice
-                    st.session_state["respuestas_finales"] = {
-                        "empleado": seleccion,
-                        "cargo": cargo,
-                        "tecnicas": respuestas_tec,
-                        "blandas": respuestas_soft
-                    }
-                    st.success("Respuestas guardadas. Ve a la pestaña de Resultados.")
-
-    # --- TAB 3: ANÁLISIS ---
-    with tab3:
-        if "respuestas_finales" in st.session_state:
-            if st.button("🧠 Analizar con IA (Nivel Experto)"):
-                with st.spinner("La IA está diagnosticando estrés, competencias y creando plan de formación..."):
-                    analisis = analyze_results(st.session_state["respuestas_finales"])
-                    st.markdown(analisis)
-                    
-                    # Ejemplo de tareas de capacitación
-                    tasks = [
-                        dict(Task="Curso de Atención al Cliente", Start='2024-07-01', Finish='2024-07-05', Resource='Capacitación'),
-                        dict(Task="Certificación Técnica", Start='2024-07-10', Finish='2024-07-15', Resource='Técnico'),
-                        dict(Task="Evaluación Final", Start='2024-07-20', Finish='2024-07-21', Resource='Evaluación')
-                    ]
-
-                    fig = ff.create_gantt(tasks, index_col='Resource', show_colorbar=True, group_tasks=True)
-                    st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Primero debes completar la evaluación en la pestaña anterior.")
