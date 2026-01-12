@@ -39,3 +39,6 @@ Thumbs.db
 
 # Credenciales
 *.json
+
+# Imágenes
+*.jpg
