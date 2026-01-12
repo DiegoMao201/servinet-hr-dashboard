@@ -32,6 +32,8 @@ df = get_employees()
 empleados = df['NOMBRE COMPLETO'].unique()
 seleccion = st.selectbox("Seleccionar Colaborador:", empleados)
 
+force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", value=False)
+
 if seleccion:
     datos = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
     cargo = datos['CARGO']
