@@ -54,10 +54,7 @@ def get_employees():
         sheet = spreadsheet.worksheet("BD EMPLEADOS")
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
-        # Limpia espacios y mayúsculas en los nombres de columnas
         df.columns = [str(c).strip().upper() for c in df.columns]
-        # Debug: muestra columnas encontradas
-        st.write("Columnas encontradas:", df.columns.tolist())
         if not df.empty and "NOMBRE COMPLETO" in df.columns:
             df = df[df["NOMBRE COMPLETO"] != ""]
         else:

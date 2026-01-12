@@ -11,20 +11,23 @@ worksheet = init_memory()
 if worksheet:
     data = worksheet.get_all_records()
     df_eval = pd.DataFrame(data)
-    df_eval = df_eval[df_eval['TIPO_DOC'] == "EVALUACION"]
-    import re
-    def extraer_puntaje(texto):
-        m = re.search(r"(\d{1,3})\s*%", texto)
-        return int(m.group(1)) if m else None
-    df_eval['PUNTAJE'] = df_eval['CONTENIDO'].apply(extraer_puntaje)
-    df_eval = df_eval.dropna(subset=['PUNTAJE'])
-    if not df_eval.empty:
-        st.subheader("Evolución de Desempeño por Cargo")
-        st.line_chart(df_eval.groupby('CARGO')['PUNTAJE'].mean())
-        st.subheader("Ranking de Desempeño")
-        ranking = df_eval.groupby('CARGO')['PUNTAJE'].mean().sort_values(ascending=False)
-        st.dataframe(ranking)
+    if "TIPO_DOC" in df_eval.columns:
+        df_eval = df_eval[df_eval['TIPO_DOC'] == "EVALUACION"]
+        import re
+        def extraer_puntaje(texto):
+            m = re.search(r"(\d{1,3})\s*%", texto)
+            return int(m.group(1)) if m else None
+        df_eval['PUNTAJE'] = df_eval['CONTENIDO'].apply(extraer_puntaje)
+        df_eval = df_eval.dropna(subset=['PUNTAJE'])
+        if not df_eval.empty:
+            st.subheader("Evolución de Desempeño por Cargo")
+            st.line_chart(df_eval.groupby('CARGO')['PUNTAJE'].mean())
+            st.subheader("Ranking de Desempeño")
+            ranking = df_eval.groupby('CARGO')['PUNTAJE'].mean().sort_values(ascending=False)
+            st.dataframe(ranking)
+        else:
+            st.info("No hay datos de desempeño para graficar.")
     else:
-        st.info("No hay datos de desempeño para graficar.")
+        st.info("No hay datos de evaluaciones estructurados aún.")
 else:
     st.warning("No se pudo acceder a la memoria de evaluaciones.")
