@@ -11,10 +11,13 @@ venv/
 # Streamlit
 .streamlit/secrets.toml
 
-# Credenciales Google
+# Credenciales Google y tokens
 service_account.json
 client_secret.json
 token.json
+token.pickle
+client_secret.json.b64
+token.pickle.b64
 
 # Archivos temporales
 *.log

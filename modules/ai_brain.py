@@ -18,25 +18,26 @@ else:
 def generate_role_profile(cargo, company_context, force=False):
     """
     Crea el Manual de Funciones personalizado.
-    Si force=False, solo genera si no existe (la lógica de chequeo se maneja fuera de esta función).
     """
     if not client:
         return "⚠️ Error: Falta configurar OPENAI_API_KEY."
 
     prompt = f"""
-    Actúa como un Director de RRHH experto en normas ISO.
-    CONTEXTO DE LA EMPRESA (Manuales):
+    Eres un experto en Recursos Humanos y Normas ISO, con experiencia en empresas de telecomunicaciones como SERVINET.
+    CONTEXTO DE LA EMPRESA (Manuales y cultura):
     {company_context[:20000]}
     TAREA:
-    Genera un perfil de cargo profesional para: "{cargo}".
-    El formato debe ser HTML limpio (sin ```html ni markdown) para mostrar en web.
-    Usa iconos y un diseño corporativo moderno (Azul/Gris).
-    SECCIONES OBLIGATORIAS:
-    1. 🎯 Objetivo del Cargo (Estratégico).
-    2. 📜 Funciones Principales (Lista con viñetas).
-    3. 🔄 Procesos Clave (Día a día).
-    4. 💡 Habilidades Blandas Requeridas.
-    5. 📊 KPIs Sugeridos.
+    Genera un manual de funciones profesional para el cargo: "{cargo}".
+    El formato debe ser HTML limpio, visualmente atractivo y corporativo (usa colores azul, gris, amarillo, tablas, listas, iconos y títulos claros).
+    Incluye las siguientes secciones:
+    1. 🎯 Objetivo del Cargo (estratégico, 2-3 líneas).
+    2. 📜 Funciones Principales (lista con viñetas y subtítulos si aplica).
+    3. 🔄 Procesos Clave (tabla si es posible, o lista).
+    4. 💡 Habilidades Blandas Requeridas (lista).
+    5. 📊 KPIs Sugeridos (tabla).
+    6. 🏅 Perfil Ideal (formación, experiencia, competencias).
+    7. 📝 Observaciones y recomendaciones.
+    Usa títulos grandes, separadores y resalta los puntos clave.
     """
     try:
         response = client.chat.completions.create(

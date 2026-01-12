@@ -14,6 +14,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
+st.image("logo_servinet.jpg", width=120)
 st.title("🧠 Talent AI - SERVINET")
 st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
 
@@ -34,7 +35,7 @@ seleccion = st.selectbox("Seleccionar Colaborador:", empleados)
 
 force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", value=False)
 
-tab1, tab2 = st.tabs(["📄 Manual de Funciones", "📝 Evaluación de Desempeño"])
+tab1, tab2, tab3 = st.tabs(["📄 Manual de Funciones", "📝 Evaluación de Desempeño", "📊 Resultados"])
 
 with tab1:
     if seleccion:
@@ -62,7 +63,7 @@ with tab1:
                 with st.spinner("Redactando documento oficial..."):
                     datos_manual = {
                         "empresa": "GRUPO SERVINET",
-                        "logo_url": "https://gruposervinet.com.co/wp-content/uploads/2023/07/logo-servinet.png",
+                        "logo_url": os.path.abspath("logo_servinet.jpg"),
                         "codigo_doc": f"DOC-MF-{str(datos.get('CEDULA', '001'))}",
                         "departamento": datos.get("SEDE", ""),
                         "titulo": f"Manual de Funciones: {cargo}",

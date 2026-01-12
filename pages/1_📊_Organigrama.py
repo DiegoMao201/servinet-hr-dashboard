@@ -5,6 +5,9 @@ from modules.database import get_employees
 
 st.set_page_config(page_title="Ecosistema SERVINET", page_icon="🌐", layout="wide")
 
+st.image("logo_servinet.jpg", width=120)
+st.title("🧠 Talent AI - SERVINET")
+
 st.markdown("""
 <style>
 .metric-card {background: #f8f9fa; border-radius: 8px; padding: 10px; margin: 5px;}

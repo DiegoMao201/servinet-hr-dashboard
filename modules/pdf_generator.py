@@ -64,3 +64,21 @@ def create_manual_pdf_from_template(data, cargo, empleado=None):
     abs_path = os.path.abspath(filename)
     HTML(string=html_content).write_pdf(abs_path)
     return abs_path
+
+# En manual_template.html, después de la portada
+"""
+<div class="pdf-page shadow-2xl mb-10 animate-fade-in">
+  <div class="absolute inset-0 geometric-pattern"></div>
+  <div class="content-wrapper h-full flex flex-col">
+    <h2 class="font-display text-2xl font-bold text-gray-900 mb-4">Datos del Empleado</h2>
+    <ul>
+      <li><b>Nombre:</b> {{ empleado }}</li>
+      <li><b>Cargo:</b> {{ cargo }}</li>
+      <li><b>Departamento:</b> {{ departamento }}</li>
+      <li><b>Fecha de Emisión:</b> {{ fecha_emision }}</li>
+    </ul>
+    <hr>
+    {{ perfil_html | safe }}
+  </div>
+</div>
+"""
