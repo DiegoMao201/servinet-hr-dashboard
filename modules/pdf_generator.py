@@ -56,21 +56,10 @@ def create_manual_pdf_from_html(html_content, cargo, empleado=None):
     return abs_path
 
 def create_manual_pdf_from_template(data, cargo, empleado=None):
-    # Carga la plantilla HTML desde el archivo
     template_dir = os.path.dirname(__file__)
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template("manual_template.html")
-    # Renderiza el HTML con los datos
-    html_content = template.render(
-        empleado=empleado,
-        cargo=cargo,
-        perfil_html=data.get("perfil_html", ""),
-        departamento=data.get("departamento", ""),
-        version=data.get("version", "1.0"),
-        fecha_emision=data.get("fecha_emision", ""),
-        # Agrega aquí todos los campos que quieras usar en la plantilla
-        **data
-    )
+    html_content = template.render(**data)
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
     abs_path = os.path.abspath(filename)
     HTML(string=html_content).write_pdf(abs_path)
