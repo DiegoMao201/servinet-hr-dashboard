@@ -8,11 +8,14 @@ st.set_page_config(page_title="Organigrama", page_icon="📊", layout="wide")
 st.image("logo_servinet.jpg", width=120)
 st.title("📊 Organigrama y Ficha de Empleado")
 
-df = get_employees()
+if "df_empleados" not in st.session_state:
+    st.session_state["df_empleados"] = get_employees()
+df = st.session_state["df_empleados"]  # Ahora usa la versión cacheada
 if df.empty:
     st.warning("No hay datos disponibles o falló la conexión. Verifica que el archivo en Drive tenga datos.")
     st.stop()
 
+# Filtros avanzados
 sedes = sorted(df['SEDE'].dropna().unique())
 departamentos = sorted(df['DEPARTAMENTO'].dropna().unique())
 cargos = sorted(df['CARGO'].dropna().unique())
@@ -30,53 +33,83 @@ if filtro_dep != "Todos":
 if filtro_cargo != "Todos":
     df_filtrado = df_filtrado[df_filtrado['CARGO'] == filtro_cargo]
 
-empleado = st.selectbox("Seleccionar Empleado", df_filtrado['NOMBRE COMPLETO'].unique())
+empleado = st.selectbox("Seleccionar empleado", df_filtrado['NOMBRE COMPLETO'].unique())
 datos = df_filtrado[df_filtrado['NOMBRE COMPLETO'] == empleado].iloc[0]
 cargo = datos.get("CARGO", "")
 manuals_folder_id = get_or_create_manuals_folder()
 
+# Ficha tipo hoja de vida
 st.markdown(f"""
-<div style='background:#f8f9fa;border-radius:12px;padding:24px;box-shadow:0 2px 8px #eee;'>
-  <h2 style='color:#003d6e;'><span style='font-size:2em;'>👤</span> {empleado} <span style='font-size:0.7em;color:#888;'>({cargo})</span></h2>
-  <p><b>Sede:</b> {datos.get('SEDE','--')} | <b>Departamento:</b> {datos.get('DEPARTAMENTO','--')}</p>
-</div>
+<div style='background:#f8f9fa;border-radius:16px;padding:32px;box-shadow:0 2px 12px #eee;max-width:900px;margin:auto;'>
+  <div style='display:flex;align-items:center;gap:24px;'>
+    <div style='font-size:4em;color:#003d6e;'>👤</div>
+    <div>
+      <h2 style='color:#003d6e;margin-bottom:0;'>{empleado}</h2>
+      <div style='font-size:1.2em;color:#0056b3;font-weight:bold;'>{cargo}</div>
+      <div style='margin-top:8px;'>
+        <span style='background:#e6f7ff;color:#0056b3;padding:4px 12px;border-radius:8px;margin-right:8px;'>Sede: {datos.get('SEDE','--')}</span>
+        <span style='background:#fffbe6;color:#856404;padding:4px 12px;border-radius:8px;'>Departamento: {datos.get('DEPARTAMENTO','--')}</span>
+      </div>
+    </div>
+  </div>
+  <hr style='margin:24px 0;'>
+  <div style='display:flex;gap:32px;flex-wrap:wrap;'>
+    <div style='flex:1;min-width:250px;'>
+      <h4 style='color:#003d6e;'>📄 Manual de Funciones</h4>
 """, unsafe_allow_html=True)
 
-# Manual de funciones
-with st.expander("📄 Manual de Funciones"):
-    manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
-    eval_text = get_saved_content(cargo, "EVALUACION")
-    badges = []
-    if not manual_file_id:
-        badges.append("<span style='background:#fff3cd;color:#856404;padding:4px 10px;border-radius:8px;'>Sin manual</span>")
-    if not eval_text:
-        badges.append("<span style='background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:8px;'>Sin evaluación</span>")
-    if badges:
-        st.markdown(" ".join(badges), unsafe_allow_html=True)
-    else:
-        st.success("Empleado con documentación y evaluación al día.")
-    if manual_file_id:
-        pdf_bytes = download_manual_from_drive(manual_file_id)
-        st.download_button(
-            label="📥 Descargar Manual PDF",
-            data=pdf_bytes,
-            file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
-            mime="application/pdf"
-        )
-        st.success("Manual disponible.")
-    else:
-        st.warning("No hay manual de funciones para este cargo.")
+manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
+if manual_file_id:
+    pdf_bytes = download_manual_from_drive(manual_file_id)
+    st.markdown("""
+    <span style='background:#d4edda;color:#155724;padding:4px 10px;border-radius:8px;'>Manual disponible</span>
+    """, unsafe_allow_html=True)
+    st.download_button(
+        label="📥 Descargar Manual PDF",
+        data=pdf_bytes,
+        file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
+        mime="application/pdf"
+    )
+else:
+    st.markdown("""
+    <span style='background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:8px;'>Sin manual de funciones</span>
+    """, unsafe_allow_html=True)
 
-# Evaluación y análisis IA
-with st.expander("📝 Evaluación y Análisis IA"):
-    evaluacion = get_saved_content(cargo, "EVALUACION")
-    if evaluacion:
-        st.markdown("**Última evaluación:**")
-        st.markdown(evaluacion, unsafe_allow_html=True)
-        analisis = analyze_results(evaluacion)
-        st.markdown("**Análisis IA:**")
-        st.markdown(analisis, unsafe_allow_html=True)
-    else:
-        st.warning("No hay evaluación registrada para este empleado.")
+st.markdown("""
+    </div>
+    <div style='flex:1;min-width:250px;'>
+      <h4 style='color:#003d6e;'>📝 Evaluaciones</h4>
+""", unsafe_allow_html=True)
 
-# Puedes agregar aquí más tabs o expanders para historial, desempeño, etc.
+eval_text = get_saved_content(cargo, "EVALUACION")
+if eval_text:
+    st.markdown("""
+    <span style='background:#d4edda;color:#155724;padding:4px 10px;border-radius:8px;'>Evaluación disponible</span>
+    """, unsafe_allow_html=True)
+    st.download_button(
+        label="📥 Descargar Evaluación (PDF/Texto)",
+        data=eval_text.encode("utf-8"),
+        file_name=f"Evaluacion_{cargo.replace(' ', '_').upper()}.txt",
+        mime="text/plain"
+    )
+    analisis = analyze_results(eval_text)
+    st.markdown("**Análisis IA:**")
+    st.markdown(analisis, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <span style='background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:8px;'>Sin evaluación registrada</span>
+    """, unsafe_allow_html=True)
+
+st.markdown("""
+    </div>
+  </div>
+  <hr style='margin:24px 0;'>
+  <div style='margin-top:16px;'>
+    <b>Correo:</b> {correo} &nbsp; | &nbsp; <b>Celular:</b> {celular} &nbsp; | &nbsp; <b>Centro de Trabajo:</b> {centro_trabajo}
+  </div>
+</div>
+""".format(
+    correo=datos.get('CORREO', 'No registrado'),
+    celular=datos.get('CELULAR', 'No registrado'),
+    centro_trabajo=datos.get('CENTRO TRABAJO', '--')
+), unsafe_allow_html=True)

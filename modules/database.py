@@ -44,6 +44,7 @@ def connect_to_drive():
     if creds: return gspread.authorize(creds)
     return None
 
+@st.cache_data(ttl=300)  # Cache por 5 minutos
 def get_employees():
     try:
         client = connect_to_drive()
@@ -64,6 +65,7 @@ def get_employees():
         st.error(f"Error leyendo empleados: {e}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=300)
 def get_evaluaciones():
     try:
         client = connect_to_drive()
