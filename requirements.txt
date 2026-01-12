@@ -12,3 +12,5 @@ fpdf2>=2.7.6
 plotly
 PyPDF2
 python-docx
+weasyprint
+jinja2

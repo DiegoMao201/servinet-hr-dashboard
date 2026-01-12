@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plantilla PDF Profesional</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    
+    .pdf-page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm;
+      margin: 0 auto;
+      background: white;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .font-display {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+    
+    .font-body {
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    
+    .gradient-accent {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    }
+    
+    .geometric-pattern {
+      background-image: 
+        linear-gradient(30deg, var(--primary-color) 12%, transparent 12.5%, transparent 87%, var(--primary-color) 87.5%, var(--primary-color)),
+        linear-gradient(150deg, var(--primary-color) 12%, transparent 12.5%, transparent 87%, var(--primary-color) 87.5%, var(--primary-color)),
+        linear-gradient(30deg, var(--primary-color) 12%, transparent 12.5%, transparent 87%, var(--primary-color) 87.5%, var(--primary-color)),
+        linear-gradient(150deg, var(--primary-color) 12%, transparent 12.5%, transparent 87%, var(--primary-color) 87.5%, var(--primary-color)),
+        linear-gradient(60deg, var(--accent-color) 25%, transparent 25.5%, transparent 75%, var(--accent-color) 75%, var(--accent-color)),
+        linear-gradient(60deg, var(--accent-color) 25%, transparent 25.5%, transparent 75%, var(--accent-color) 75%, var(--accent-color));
+      background-size: 40px 70px;
+      background-position: 0 0, 0 0, 20px 35px, 20px 35px, 0 0, 20px 35px;
+      opacity: 0.03;
+    }
+    
+    .corner-decoration {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+    }
+    
+    .corner-decoration::before,
+    .corner-decoration::after {
+      content: '';
+      position: absolute;
+      background: var(--primary-color);
+    }
+    
+    .corner-top-left::before {
+      width: 80px;
+      height: 3px;
+      top: 0;
+      left: 0;
+    }
+    
+    .corner-top-left::after {
+      width: 3px;
+      height: 80px;
+      top: 0;
+      left: 0;
+    }
+    
+    .corner-bottom-right::before {
+      width: 80px;
+      height: 3px;
+      bottom: 0;
+      right: 0;
+    }
+    
+    .corner-bottom-right::after {
+      width: 3px;
+      height: 80px;
+      bottom: 0;
+      right: 0;
+    }
+    
+    .section-number {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    
+    .info-card {
+      border-left: 4px solid var(--primary-color);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.03) 0%, rgba(var(--secondary-rgb), 0.03) 100%);
+    }
+    
+    .table-header {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    }
+    
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--secondary-rgb), 0.08) 100%);
+      border: 1px solid rgba(var(--primary-rgb), 0.2);
+    }
+    
+    .watermark {
+      position: absolute;
+      font-size: 180px;
+      font-weight: 700;
+      opacity: 0.02;
+      transform: rotate(-30deg);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    .content-wrapper {
+      position: relative;
+      z-index: 1;
+    }
+    
+    @media print {
+      .pdf-page {
+        page-break-after: always;
+        box-shadow: none !important;
+      }
+      
+      .no-print {
+        display: none !important;
+      }
+    }
+    
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .preview-container {
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+</head>
+<body class="h-full font-body">
+  <div id="app" class="h-full overflow-auto preview-container"><!-- Portada -->
+   <div class="pdf-page shadow-2xl mb-10 animate-fade-in" style="--primary-color: {{ primary_color }}; --secondary-color: {{ secondary_color }}; --accent-color: {{ accent_color }};"><!-- Patrón de fondo -->
+     <div class="absolute inset-0 geometric-pattern"></div><!-- Marca de agua -->
+     <div class="watermark top-1/3 left-1/4 text-gray-900 font-display" id="watermark">
+      {{ empresa }}
+     </div><!-- Decoraciones de esquina -->
+     <div class="corner-decoration corner-top-left top-8 left-8"></div>
+     <div class="corner-decoration corner-bottom-right bottom-8 right-8"></div><!-- Contenido -->
+     <div class="content-wrapper h-full flex flex-col"><!-- Header -->
+      <header class="flex justify-between items-start mb-auto">
+       <div class="flex items-center gap-3">
+        <div class="w-14 h-14 rounded-2xl gradient-accent flex items-center justify-center shadow-lg">
+         <!-- Puedes poner aquí el logo corporativo si tienes la URL -->
+         {% if logo_url %}
+           <img src="{{ logo_url }}" alt="Logo" style="height:40px;">
+         {% else %}
+           <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+           </svg>
+         {% endif %}
+        </div>
+        <div>
+         <p id="company-name" class="font-display font-bold text-xl text-gray-800">{{ empresa }}</p>
+         <p class="text-xs text-gray-500 tracking-widest uppercase">Documento Oficial</p>
+        </div>
+       </div>
+       <div class="text-right">
+        <p class="text-xs text-gray-400 uppercase tracking-wider">Código</p>
+        <p class="font-mono text-sm font-semibold text-gray-700">{{ codigo_doc }}</p>
+       </div>
+      </header><!-- Título Central -->
+      <div class="flex-1 flex flex-col justify-center items-center text-center py-16">
+       <div class="mb-6">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100"><span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> <span id="department" class="text-sm font-medium text-gray-600">{{ departamento }}</span>
+        </div>
+       </div>
+       <h1 id="document-title" class="font-display text-5xl font-bold text-gray-900 mb-4 leading-tight">{{ titulo }}</h1>
+       <div class="w-24 h-1.5 rounded-full gradient-accent mb-6"></div>
+       <p class="text-lg text-gray-500 max-w-md">{{ descripcion }}</p><!-- Decoración geométrica -->
+       <div class="mt-12 flex items-center gap-4">
+        <div class="w-16 h-16 rounded-2xl border-2 border-blue-200 flex items-center justify-center rotate-12">
+         <div class="w-8 h-8 rounded-lg gradient-accent"></div>
+        </div>
+        <div class="w-20 h-20 rounded-full border-2 border-purple-200 flex items-center justify-center">
+         <div class="w-10 h-10 rounded-full gradient-accent opacity-60"></div>
+        </div>
+        <div class="w-16 h-16 rounded-2xl border-2 border-amber-200 flex items-center justify-center -rotate-12">
+         <div class="w-8 h-8 rounded-lg bg-amber-400"></div>
+        </div>
+       </div>
+      </div><!-- Footer -->
+      <footer class="mt-auto">
+       <div class="flex justify-between items-end">
+        <div class="space-y-1">
+         <p class="text-xs text-gray-400 uppercase tracking-wider">Versión</p>
+         <p id="version" class="text-2xl font-display font-bold text-gray-800">{{ version }}</p>
+        </div>
+        <div class="text-center">
+         <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Vigencia</p>
+         <p class="text-sm font-medium text-gray-700">{{ vigencia }}</p>
+        </div>
+        <div class="text-right space-y-1">
+         <p class="text-xs text-gray-400 uppercase tracking-wider">Fecha de emisión</p>
+         <p class="text-sm font-medium text-gray-700" id="current-date">{{ fecha_emision }}</p>
+        </div>
+       </div>
+       <div class="mt-6 pt-4 border-t border-gray-200">
+        <p class="text-center text-xs text-gray-400">Este documento es propiedad exclusiva de la empresa. Prohibida su reproducción sin autorización.</p>
+       </div>
+      </footer>
+     </div>
+    </div><!-- Contenido dinámico generado por IA -->
+    <div class="pdf-page shadow-2xl mb-10 animate-fade-in">
+     <div class="absolute inset-0 geometric-pattern"></div>
+     <div class="content-wrapper h-full flex flex-col">
+      {{ perfil_html | safe }}
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      company_name: 'GRUPO SERVINET',
+      document_title: 'Manual de Funciones',
+      department: 'Departamento de Recursos Humanos',
+      version: '1.0',
+      primary_color: '#003d6e',
+      secondary_color: '#00a8e1',
+      text_color: '#1f2937',
+      background_color: '#ffffff',
+      accent_color: '#ffb81c',
+      font_family: 'Inter',
+      font_size: 16
+    };
+
+    // Set current date
+    const dateElement = document.getElementById('current-date');
+    if (dateElement) {
+      const now = new Date();
+      const options = { day: 'numeric', month: 'long', year: 'numeric' };
+      dateElement.textContent = now.toLocaleDateString('es-ES', options);
+    }
+
+    async function onConfigChange(config) {
+      const companyName = config.company_name || defaultConfig.company_name;
+      const documentTitle = config.document_title || defaultConfig.document_title;
+      const department = config.department || defaultConfig.department;
+      const version = config.version || defaultConfig.version;
+      const primaryColor = config.primary_color || defaultConfig.primary_color;
+      const secondaryColor = config.secondary_color || defaultConfig.secondary_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const backgroundColor = config.background_color || defaultConfig.background_color;
+      const accentColor = config.accent_color || defaultConfig.accent_color;
+      const fontFamily = config.font_family || defaultConfig.font_family;
+      const fontSize = config.font_size || defaultConfig.font_size;
+
+      // Update text content
+      const companyEl = document.getElementById('company-name');
+      if (companyEl) companyEl.textContent = companyName;
+
+      const watermarkEl = document.getElementById('watermark');
+      if (watermarkEl) watermarkEl.textContent = companyName;
+
+      const titleEl = document.getElementById('document-title');
+      if (titleEl) {
+        const words = documentTitle.split(' ');
+        if (words.length > 2) {
+          const mid = Math.ceil(words.length / 2);
+          titleEl.innerHTML = words.slice(0, mid).join(' ') + '<br/>' + words.slice(mid).join(' ');
+        } else {
+          titleEl.textContent = documentTitle;
+        }
+      }
+
+      const deptEl = document.getElementById('department');
+      if (deptEl) deptEl.textContent = department;
+
+      const versionEl = document.getElementById('version');
+      if (versionEl) versionEl.textContent = version;
+
+      // Update colors via CSS custom properties
+      const pages = document.querySelectorAll('.pdf-page');
+      pages.forEach(page => {
+        page.style.setProperty('--primary-color', primaryColor);
+        page.style.setProperty('--secondary-color', secondaryColor);
+        page.style.setProperty('--accent-color', accentColor);
+        page.style.backgroundColor = backgroundColor;
+        
+        // Convert hex to RGB for rgba usage
+        const hexToRgb = (hex) => {
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+          return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '30, 64, 175';
+        };
+        page.style.setProperty('--primary-rgb', hexToRgb(primaryColor));
+        page.style.setProperty('--secondary-rgb', hexToRgb(secondaryColor));
+      });
+
+      // Update fonts
+      const fontStack = `${fontFamily}, Inter, system-ui, sans-serif`;
+      document.body.style.fontFamily = fontStack;
+      
+      // Update font sizes proportionally
+      const headings = document.querySelectorAll('h1');
+      headings.forEach(h => h.style.fontSize = `${fontSize * 3}px`);
+      
+      const h2s = document.querySelectorAll('h2');
+      h2s.forEach(h => h.style.fontSize = `${fontSize * 1.5}px`);
+      
+      const h3s = document.querySelectorAll('h3');
+      h3s.forEach(h => h.style.fontSize = `${fontSize * 1.125}px`);
+
+      // Update text colors
+      const textElements = document.querySelectorAll('.text-gray-800, .text-gray-900');
+      textElements.forEach(el => el.style.color = textColor);
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => { config.background_color = value; window.elementSdk.setConfig({ background_color: value }); }
+          },
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => { config.primary_color = value; window.elementSdk.setConfig({ primary_color: value }); }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => { config.text_color = value; window.elementSdk.setConfig({ text_color: value }); }
+          },
+          {
+            get: () => config.secondary_color || defaultConfig.secondary_color,
+            set: (value) => { config.secondary_color = value; window.elementSdk.setConfig({ secondary_color: value }); }
+          },
+          {
+            get: () => config.accent_color || defaultConfig.accent_color,
+            set: (value) => { config.accent_color = value; window.elementSdk.setConfig({ accent_color: value }); }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => { config.font_family = value; window.elementSdk.setConfig({ font_family: value }); }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => { config.font_size = value; window.elementSdk.setConfig({ font_size: value }); }
+        }
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['company_name', config.company_name || defaultConfig.company_name],
+        ['document_title', config.document_title || defaultConfig.document_title],
+        ['department', config.department || defaultConfig.department],
+        ['version', config.version || defaultConfig.version]
+      ]);
+    }
+
+    // Initialize SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bcd8f40450d386d',t:'MTc2ODIzMDQwNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

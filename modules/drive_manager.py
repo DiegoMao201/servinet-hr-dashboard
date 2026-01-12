@@ -155,3 +155,5 @@ def upload_manual_to_drive(file_path, folder_id):
         st.error(f"Error subiendo a Drive: {e}")
         st.info("¿La cuenta de servicio tiene permisos de 'Administrador de contenido' en la Unidad Compartida?")
         return None
+
+upload_manual_to_drive(pdf_filename, folder_id="1nmKGvJusOG13cePPwTfrYSxrPwXgwEcZ")
