@@ -140,29 +140,41 @@ with tab2:
 with tab3:
     st.subheader("Resultados Globales")
     st.info("Pronto podrás ver el desempeño y progreso de todos los colaboradores aquí.")
-    import pandas as pd
-    df_resp = pd.DataFrame(sheet.get_all_records())
-    if not df_resp.empty:
-        st.subheader("📊 Resultados por Pregunta")
-        pregunta_sel = st.selectbox("Selecciona una pregunta", df_resp["PREGUNTA"].unique())
-        df_preg = df_resp[df_resp["PREGUNTA"] == pregunta_sel]
-        st.bar_chart(df_preg["RESPUESTA"].value_counts().sort_index())
 
-        excel_bytes = io.BytesIO()
-        df_resp.to_excel(excel_bytes, index=False)
-        st.download_button("📥 Exportar a Excel", data=excel_bytes.getvalue(), file_name="respuestas_evaluacion.xlsx")
+    # --- Definir sheet correctamente ---
+    from modules.database import connect_to_drive, SPREADSHEET_ID
+    client = connect_to_drive()
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    try:
+        sheet = spreadsheet.worksheet("7_respuestas_evaluacion")
+        df_resp = pd.DataFrame(sheet.get_all_records())
+        if not df_resp.empty:
+            st.subheader("📊 Resultados por Pregunta")
+            pregunta_sel = st.selectbox("Selecciona una pregunta", df_resp["PREGUNTA"].unique())
+            df_preg = df_resp[df_resp["PREGUNTA"] == pregunta_sel]
+            st.bar_chart(df_preg["RESPUESTA"].value_counts().sort_index())
 
-        def export_pdf(df):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 10, "Resultados Evaluación", ln=True, align="C")
-            pdf.set_font("Arial", "", 10)
-            for idx, row in df.iterrows():
-                pdf.cell(0, 8, f"{row['NOMBRE']} | {row['CARGO']} | {row['PREGUNTA']} | {row['RESPUESTA']}", ln=True)
-            pdf_bytes = io.BytesIO()
-            pdf.output(pdf_bytes)
-            pdf_bytes.seek(0)
-            return pdf_bytes
+            import io
+            excel_bytes = io.BytesIO()
+            df_resp.to_excel(excel_bytes, index=False)
+            st.download_button("📥 Exportar a Excel", data=excel_bytes.getvalue(), file_name="respuestas_evaluacion.xlsx")
 
-        st.download_button("📄 Exportar a PDF", data=export_pdf(df_resp), file_name="respuestas_evaluacion.pdf", mime="application/pdf")
+            from fpdf import FPDF
+            def export_pdf(df):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", "B", 14)
+                pdf.cell(0, 10, "Resultados Evaluación", ln=True, align="C")
+                pdf.set_font("Arial", "", 10)
+                for idx, row in df.iterrows():
+                    pdf.cell(0, 8, f"{row['NOMBRE']} | {row['CARGO']} | {row['PREGUNTA']} | {row['RESPUESTA']}", ln=True)
+                pdf_bytes = io.BytesIO()
+                pdf.output(pdf_bytes)
+                pdf_bytes.seek(0)
+                return pdf_bytes
+
+            st.download_button("📄 Exportar a PDF", data=export_pdf(df_resp), file_name="respuestas_evaluacion.pdf", mime="application/pdf")
+        else:
+            st.info("No hay respuestas de evaluación registradas aún.")
+    except Exception as e:
+        st.warning(f"No se pudo acceder a los resultados globales: {e}")
