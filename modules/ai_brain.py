@@ -17,34 +17,46 @@ else:
 
 def generate_role_profile(cargo, company_context, force=False):
     """
-    Crea el Manual de Funciones personalizado.
+    Crea el Manual de Funciones personalizado, ahora mucho más completo y analítico.
     """
     if not client:
         return "⚠️ Error: Falta configurar OPENAI_API_KEY."
 
     prompt = f"""
-    Eres consultor senior en Recursos Humanos, experto en Normas ISO y gestión de talento en empresas de telecomunicaciones como SERVINET.
-    CONTEXTO DE LA EMPRESA (Manuales y cultura):
+    Eres consultor senior en Recursos Humanos, experto en Normas ISO, gestión de talento, análisis organizacional y transformación digital en empresas de telecomunicaciones como SERVINET.
+    CONTEXTO DE LA EMPRESA (Manuales, cultura, procesos, informes, estructura, diagnósticos, etc.):
     {company_context[:20000]}
     TAREA:
-    Redacta un manual de funciones empresarial y profesional para el cargo: "{cargo}".
+    Redacta un manual de funciones empresarial, profesional y EXTREMADAMENTE COMPLETO para el cargo: "{cargo}".
     El resultado debe ser HTML limpio, visualmente atractivo y corporativo, usando colores azul, gris y amarillo, tablas, listas, iconos y títulos claros.
     Estructura el documento en las siguientes secciones (usa emojis y títulos grandes):
+
     1. 🎯 Objetivo del Cargo (estratégico, 2-3 líneas, resaltado).
     2. 📜 Funciones Principales (lista con viñetas y subtítulos si aplica).
     3. 🔄 Procesos Clave (tabla o lista, con breve descripción de cada proceso).
-    4. 💡 Habilidades Blandas Requeridas (lista con ejemplos).
-    5. 📊 KPIs Sugeridos (tabla con nombre del KPI, objetivo y frecuencia de medición).
-    6. 🏅 Perfil Ideal (formación, experiencia, competencias, en tabla o lista).
-    7. 📝 Observaciones y recomendaciones (resalta sugerencias de mejora y puntos críticos).
-    Usa títulos grandes, separadores visuales, y resalta los puntos clave con colores corporativos.
-    No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
+    4. 🗺️ Mapa de Procesos (diagrama textual o tabla de relaciones entre procesos y áreas).
+    5. 🧩 Matriz de Competencias (tabla con competencias técnicas y blandas, nivel requerido y nivel actual promedio en la empresa).
+    6. 💡 Habilidades Blandas Requeridas (lista con ejemplos y casos prácticos).
+    7. 🏆 Habilidades Técnicas Requeridas (lista y tabla con certificaciones, herramientas y tecnologías).
+    8. 📊 KPIs Sugeridos (tabla con nombre del KPI, objetivo, frecuencia de medición y responsable).
+    9. 🏅 Perfil Ideal (formación, experiencia, competencias, en tabla o lista).
+    10. 🧠 Análisis de Riesgos (identifica riesgos operativos, humanos y tecnológicos asociados al cargo).
+    11. 🚦 Alertas y Recomendaciones (resalta sugerencias de mejora, puntos críticos y alertas de gestión).
+    12. 🔍 Diagnóstico Comparativo (compara el cargo con roles similares en el sector, identifica brechas y oportunidades).
+    13. 📝 Observaciones y recomendaciones finales (resalta sugerencias de mejora y puntos críticos).
+    14. 📚 Referencias y fuentes (lista de documentos, manuales y políticas internas usadas como base).
+
+    - Usa títulos grandes, separadores visuales, y resalta los puntos clave con colores corporativos.
+    - No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
+    - Si tienes datos de la empresa, personaliza el manual con ejemplos reales, cifras, y recomendaciones específicas para SERVINET.
+    - Sé exhaustivo, analítico y profesional. El manual debe servir para onboarding, auditoría, capacitación y gestión estratégica.
     """
+
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            temperature=0.2
         )
         content = response.choices[0].message.content
         return content.replace("```html", "").replace("```", "")
