@@ -50,6 +50,7 @@ def generate_role_profile(cargo, company_context, force=False):
     - No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
     - Si tienes datos de la empresa, personaliza el manual con ejemplos reales, cifras, y recomendaciones específicas para SERVINET.
     - Sé exhaustivo, analítico y profesional. El manual debe servir para onboarding, auditoría, capacitación y gestión estratégica.
+    NO omitas ninguna sección. Si no tienes información suficiente, escribe "No aplica" o "Sin información".
     """
 
     try:
