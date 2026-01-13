@@ -32,7 +32,6 @@ cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 tab1, tab2 = st.tabs(["🌳 Organigrama Visual", "👤 Ficha de Empleado"])
 
 def preparar_df_organigrama(df):
-    # Mapea JEFE_DIRECTO (nombre) a CEDULA
     nombre_to_id = dict(zip(df['NOMBRE COMPLETO'], df['CEDULA'].astype(str)))
     df_org = pd.DataFrame({
         'id': df['CEDULA'].astype(str),
@@ -45,7 +44,6 @@ def preparar_df_organigrama(df):
         'sede': df.get('SEDE', pd.Series(['']*len(df))),
         'estado': df.get('ESTADO', pd.Series(['']*len(df))),
         'tipo': df.get('PLANTA - COOPERATIVA', pd.Series(['']*len(df))),
-        'foto': df.get('FOTO', pd.Series(['']*len(df))),
     })
     return df_org
 
@@ -68,14 +66,14 @@ def render_organigrama(df_empleados):
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 1rem;
+          padding: 0.5rem;
         }}
         .org-level {{
           display: flex;
           justify-content: center;
-          gap: 1rem;
+          gap: 0.5rem;
           position: relative;
-          padding-top: 1rem;
+          padding-top: 0.5rem;
           flex-wrap: wrap;
         }}
         .org-level::before {{
@@ -84,7 +82,7 @@ def render_organigrama(df_empleados):
           top: 0;
           left: 50%;
           width: 2px;
-          height: 1.2rem;
+          height: 0.8rem;
           background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
         }}
         .org-level:first-child::before {{
@@ -95,39 +93,39 @@ def render_organigrama(df_empleados):
         }}
         .org-node {{
           position: relative;
-          min-width: 140px;
-          max-width: 180px;
+          min-width: 110px;
+          max-width: 140px;
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          border-radius: 12px;
-          padding: 0.7rem 1rem;
-          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.10), 0 1px 4px rgba(0, 0, 0, 0.04);
-          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 10px;
+          padding: 0.5rem 0.7rem;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10), 0 1px 4px rgba(0, 0, 0, 0.04);
+          border: 1px solid rgba(99, 102, 241, 0.12);
           transition: all 0.2s ease;
           cursor: pointer;
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.3rem;
         }}
         .org-node:hover {{
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+          transform: translateY(-2px) scale(1.04);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
         }}
         .org-node.ceo {{
           background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
           color: white;
-          min-width: 180px;
+          min-width: 140px;
         }}
         .org-node.manager {{
-          border-left: 3px solid #6366f1;
+          border-left: 2px solid #6366f1;
         }}
         .node-avatar {{
-          width: 38px;
-          height: 38px;
-          border-radius: 8px;
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 700;
-          font-size: 1.1rem;
-          margin-bottom: 0.3rem;
+          font-size: 0.9rem;
+          margin-bottom: 0.2rem;
           background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
           color: #4f46e5;
         }}
@@ -137,51 +135,56 @@ def render_organigrama(df_empleados):
         }}
         .node-name {{
           font-weight: 600;
-          font-size: 0.95rem;
-          margin-bottom: 0.2rem;
+          font-size: 0.8rem;
+          margin-bottom: 0.1rem;
           white-space: normal;
         }}
         .node-position {{
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: #6b7280;
-          margin-bottom: 0.2rem;
+          margin-bottom: 0.1rem;
         }}
         .org-node.ceo .node-position {{
           color: rgba(255, 255, 255, 0.85);
         }}
         .node-dept {{
           display: inline-block;
-          padding: 0.15rem 0.5rem;
-          border-radius: 12px;
-          font-size: 0.65rem;
+          padding: 0.10rem 0.3rem;
+          border-radius: 10px;
+          font-size: 0.6rem;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          margin-top: 0.2rem;
+          margin-top: 0.1rem;
           background: #fef3c7;
           color: #92400e;
         }}
         .node-sede {{
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           color: #2563eb;
-          margin-top: 0.1rem;
+          margin-top: 0.05rem;
         }}
         .node-estado {{
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           color: #059669;
-          margin-top: 0.1rem;
+          margin-top: 0.05rem;
         }}
         .node-tipo {{
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           color: #b91c1c;
-          margin-top: 0.1rem;
+          margin-top: 0.05rem;
+        }}
+        .node-contact {{
+          font-size: 0.6rem;
+          color: #64748b;
+          margin-top: 0.05rem;
         }}
       </style>
     </head>
     <body>
-      <div class="header" style="text-align:center;margin-bottom:1rem;">
-        <h1 style="font-size:1.5rem;font-weight:700;color:#1e293b;">Organigrama Empresarial</h1>
-        <p style="color:#64748b;margin:0;">Estructura Organizacional Compacta</p>
+      <div class="header" style="text-align:center;margin-bottom:0.5rem;">
+        <h1 style="font-size:1.1rem;font-weight:700;color:#1e293b;">Organigrama Empresarial</h1>
+        <p style="color:#64748b;margin:0;font-size:0.8rem;">Estructura Organizacional Compacta</p>
       </div>
       <div id="org-chart" class="org-tree"></div>
       <script>
@@ -225,6 +228,8 @@ def render_organigrama(df_empleados):
                 <div class="node-sede">${{node.sede || ''}}</div>
                 <div class="node-estado">${{node.estado || ''}}</div>
                 <div class="node-tipo">${{node.tipo || ''}}</div>
+                <div class="node-contact">${{node.email || ''}}</div>
+                <div class="node-contact">${{node.phone || ''}}</div>
               `;
               levelDiv.appendChild(nodeDiv);
             }});
@@ -241,7 +246,7 @@ def render_organigrama(df_empleados):
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=700, scrolling=True)
+    st.components.v1.html(html_code, height=600, scrolling=True)
 
 with tab1:
     st.subheader("🌳 Organigrama Visual Interactivo")
