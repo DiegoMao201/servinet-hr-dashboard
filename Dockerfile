@@ -4,17 +4,11 @@ FROM python:3.11-slim
 # Directorio de trabajo
 WORKDIR /app
 
-# Instalar Graphviz, Curl y Google Chrome (versión estable)
+# Instala solo lo necesario (sin Chrome, sin Kaleido)
 RUN apt-get update && apt-get install -y \
     graphviz \
     curl \
-    wget \
-    gnupg2 \
     && rm -rf /var/lib/apt/lists/*
-
-RUN wget -O /usr/share/keyrings/google-linux-signing-key.gpg https://dl.google.com/linux/linux_signing_key.pub
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-RUN apt-get update && apt-get install -y google-chrome-stable
 
 # Copiar archivos
 COPY . .

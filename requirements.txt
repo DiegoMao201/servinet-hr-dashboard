@@ -14,4 +14,3 @@ PyPDF2
 python-docx
 weasyprint
 jinja2
-kaleido
