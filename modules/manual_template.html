@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Manual de Funciones - {{ cargo }}</title>
+  <style>
+    @page { size: A4; margin: 25mm 20mm 25mm 20mm; }
+    body { font-family: 'Inter', Arial, sans-serif; color: #222; background: #fff; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .logo { height: 70px; margin-bottom: 10px; }
+    .title { font-size: 2.5em; color: #003d6e; font-weight: bold; margin-bottom: 10px; }
+    .subtitle { font-size: 1.2em; color: #00a8e1; margin-bottom: 20px; }
+    .info-table { width: 100%; margin-bottom: 30px; border-collapse: collapse; }
+    .info-table td { padding: 6px 12px; border-bottom: 1px solid #eee; }
+    .section { margin-bottom: 30px; }
+    .section-title { font-size: 1.3em; color: #003d6e; font-weight: bold; margin-bottom: 10px; border-left: 5px solid #ffb81c; padding-left: 10px; }
+    .highlight { background: #f0f2f6; border-left: 4px solid #00a8e1; padding: 10px; margin-bottom: 15px; }
+    .comments { background: #fffbe6; border-left: 4px solid #ffb81c; padding: 10px; margin-bottom: 15px; font-style: italic; }
+    .footer { margin-top: 40px; text-align: right; font-size: 0.9em; color: #888; }
+    .firma { margin-top: 60px; text-align: left; }
+    .firma-line { border-top: 1px solid #003d6e; width: 250px; margin-top: 30px; }
+    .observaciones { background: #e6f7ff; border-left: 4px solid #00a8e1; padding: 10px; margin-bottom: 15px; }
+    table.kpi-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table.kpi-table th, table.kpi-table td { border: 1px solid #ddd; padding: 8px; }
+    table.kpi-table th { background: #003d6e; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    {% if logo_url %}
+      <img src="{{ logo_url }}" class="logo" alt="Logo Servinet">
+    {% endif %}
+    <div class="title">Manual de Funciones</div>
+    <div class="subtitle">{{ empresa }}</div>
+    <table class="info-table">
+      <tr><td><b>Colaborador:</b></td><td>{{ empleado }}</td></tr>
+      <tr><td><b>Cargo:</b></td><td>{{ cargo }}</td></tr>
+      <tr><td><b>Departamento:</b></td><td>{{ departamento }}</td></tr>
+      <tr><td><b>Fecha de Emisión:</b></td><td>{{ fecha_emision }}</td></tr>
+      <tr><td><b>Versión:</b></td><td>{{ version }}</td></tr>
+      <tr><td><b>Vigencia:</b></td><td>{{ vigencia }}</td></tr>
+      <tr><td><b>Código:</b></td><td>{{ codigo_doc }}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🎯 Objetivo del Cargo</div>
+    <div class="highlight">{{ objetivo_cargo }}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📜 Funciones Principales</div>
+    {{ funciones_principales | safe }}
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔄 Procesos Clave</div>
+    {{ procesos_clave | safe }}
+  </div>
+
+  <div class="section">
+    <div class="section-title">💡 Habilidades Blandas Requeridas</div>
+    {{ habilidades_blandas | safe }}
+  </div>
+
+  <div class="section">
+    <div class="section-title">📊 KPIs Sugeridos</div>
+    {{ kpis_sugeridos | safe }}
+  </div>
+
+  <div class="section">
+    <div class="section-title">🏅 Perfil Ideal</div>
+    {{ perfil_ideal | safe }}
+  </div>
+
+  <div class="section">
+    <div class="section-title">📝 Observaciones y Recomendaciones</div>
+    <div class="observaciones">{{ observaciones | safe }}</div>
+  </div>
+
+  <div class="footer">
+    Este documento es propiedad exclusiva de SERVINET. Prohibida su reproducción sin autorización.<br>
+    <div class="firma">
+      <div class="firma-line"></div>
+      <div>Firma Responsable</div>
+    </div>
+  </div>
+</body>
+</html>

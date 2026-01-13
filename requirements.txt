@@ -1,0 +1,16 @@
+streamlit
+pandas
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+oauth2client
+graphviz
+openai
+fpdf2>=2.7.6
+plotly
+PyPDF2
+python-docx
+weasyprint
+jinja2

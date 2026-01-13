@@ -1,0 +1,26 @@
+# Usamos Python 3.11 (Más moderno para IA)
+FROM python:3.11-slim
+
+# Directorio de trabajo
+WORKDIR /app
+
+# Instalar Graphviz y Curl
+RUN apt-get update && apt-get install -y \
+    graphviz \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar archivos
+COPY . .
+
+# Instalar librerías Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Puerto
+EXPOSE 8501
+
+# Chequeo de salud
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+# Comando de ejecución
+ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
