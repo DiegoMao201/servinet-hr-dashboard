@@ -183,3 +183,8 @@ INSTRUCCIÓN:
         except Exception as e:
             manual_html += f'\n<div class="section"><div class="section-title">{emoji} {instruccion.split(".")[0]}</div>Error generando sección: {e}</div>\n'
     return manual_html
+
+if st.button("✨ Generar Manual de Funciones Personalizado"):
+    with st.spinner("Redactando documento oficial..."):
+        perfil_html = generate_role_profile_by_sections(cargo, st.session_state["company_context"])
+        # ...el resto de tu código para armar datos_manual y PDF...
