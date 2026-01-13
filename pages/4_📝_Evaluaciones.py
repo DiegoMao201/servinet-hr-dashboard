@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from modules.database import get_evaluaciones, get_employees
+from modules.database import get_evaluaciones, get_employees, connect_to_drive, SPREADSHEET_ID
 from modules.drive_manager import find_manual_in_drive, download_manual_from_drive, get_or_create_manuals_folder
 from modules.ai_brain import analyze_results
 
@@ -63,4 +63,41 @@ else:
 with st.expander("📈 Ver desempeño global"):
     st.info("Consulta el desempeño global en la pestaña correspondiente para comparar este empleado con el resto del equipo.")
 
+with st.expander("📝 Nueva Evaluación 360°"):
+    tipo_evaluador = st.selectbox("Tipo de Evaluador", ["Auto", "Jefe", "Par", "Subordinado"])
+    puntaje = st.slider("Puntaje Global (%)", 0, 100, 50)
+    comentarios = st.text_area("Comentarios adicionales")
+    enviado = st.button("Registrar Evaluación")
+    if enviado:
+        import datetime
+        client = connect_to_drive()
+        spreadsheet = client.open_by_key(SPREADSHEET_ID)
+        sheet = spreadsheet.worksheet("2_evaluaciones")
+        sheet.append_row([
+            empleado, cargo, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            tipo_evaluador, puntaje, "", comentarios
+        ])
+        st.success("Evaluación registrada.")
+
 st.caption("Página integrada con IA, manuales y desempeño. SERVINET 2024.")
+
+# Nueva sección para Capacitación
+st.title("📅 Cronograma de Capacitaciones")
+
+sheet = spreadsheet.worksheet("3_capacitaciones")
+data = sheet.get_all_records()
+df_capacitaciones = pd.DataFrame(data)
+
+st.dataframe(df_capacitaciones)
+st.markdown("### Registrar nueva capacitación")
+nombre = st.selectbox("Empleado", df_capacitaciones["NOMBRE"].unique())
+tema = st.text_input("Tema")
+estado = st.selectbox("Estado", ["Pendiente", "Realizada"])
+if st.button("Registrar capacitación"):
+    import datetime
+    cargo = df_capacitaciones[df_capacitaciones["NOMBRE"] == nombre]["CARGO"].iloc[0]
+    sheet.append_row([
+        nombre, cargo, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        tema, estado, ""
+    ])
+    st.success("Capacitación registrada.")

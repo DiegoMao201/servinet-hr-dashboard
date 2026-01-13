@@ -48,4 +48,11 @@ with col2:
         st.success("Todos los empleados tienen evaluación registrada.")
 
 st.markdown("---")
+
+# Nuevas alertas
+if "PUNTAJE" in df.columns and df["PUNTAJE"].min() < 60:
+    st.warning("⚠️ Hay empleados con desempeño bajo. Revisa el plan de acción.")
+if "CLIMA_LABORAL" in df.columns and df["CLIMA_LABORAL"].mean() < 6:
+    st.error("⚠️ Clima laboral bajo detectado. Prioriza acciones de bienestar.")
+
 st.info("Este dashboard se actualiza en tiempo real según la base de datos.")
