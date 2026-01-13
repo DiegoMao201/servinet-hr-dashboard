@@ -42,6 +42,10 @@ def preparar_df_organigrama(df):
         'parent_id': df['JEFE_DIRECTO'].map(nombre_to_id).fillna('') if 'JEFE_DIRECTO' in df.columns else ['']*len(df),
         'email': df.get('CORREO', pd.Series(['']*len(df))),
         'phone': df.get('CELULAR', pd.Series(['']*len(df))),
+        'sede': df.get('SEDE', pd.Series(['']*len(df))),
+        'estado': df.get('ESTADO', pd.Series(['']*len(df))),
+        'tipo': df.get('PLANTA - COOPERATIVA', pd.Series(['']*len(df))),
+        'foto': df.get('FOTO', pd.Series(['']*len(df))),
     })
     return df_org
 
@@ -57,25 +61,21 @@ def render_organigrama(df_empleados):
       <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
       <style>
         body {{
-          box-sizing: border-box;
           font-family: 'Plus Jakarta Sans', sans-serif;
-          margin: 0;
-          padding: 0;
-          height: 100%;
           background: linear-gradient(to bottom right, #f8fafc, #e0e7ff, #ede9fe);
         }}
         .org-tree {{
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 2rem;
+          padding: 1rem;
         }}
         .org-level {{
           display: flex;
           justify-content: center;
-          gap: 2rem;
+          gap: 1rem;
           position: relative;
-          padding-top: 2rem;
+          padding-top: 1rem;
           flex-wrap: wrap;
         }}
         .org-level::before {{
@@ -84,7 +84,7 @@ def render_organigrama(df_empleados):
           top: 0;
           left: 50%;
           width: 2px;
-          height: 2rem;
+          height: 1.2rem;
           background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
         }}
         .org-level:first-child::before {{
@@ -95,141 +95,99 @@ def render_organigrama(df_empleados):
         }}
         .org-node {{
           position: relative;
-          min-width: 220px;
+          min-width: 140px;
+          max-width: 180px;
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          border-radius: 16px;
-          padding: 1.5rem;
-          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(0, 0, 0, 0.05);
-          border: 1px solid rgba(99, 102, 241, 0.2);
-          transition: all 0.3s ease;
+          border-radius: 12px;
+          padding: 0.7rem 1rem;
+          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.10), 0 1px 4px rgba(0, 0, 0, 0.04);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          transition: all 0.2s ease;
           cursor: pointer;
+          margin-bottom: 0.5rem;
         }}
         .org-node:hover {{
-          transform: translateY(-4px);
-          box-shadow: 0 8px 30px rgba(99, 102, 241, 0.25), 0 4px 12px rgba(0, 0, 0, 0.1);
+          transform: translateY(-2px) scale(1.03);
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
         }}
         .org-node.ceo {{
           background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
           color: white;
-          min-width: 260px;
+          min-width: 180px;
         }}
         .org-node.manager {{
-          border-left: 4px solid #6366f1;
+          border-left: 3px solid #6366f1;
         }}
         .node-avatar {{
-          width: 56px;
-          height: 56px;
-          border-radius: 12px;
+          width: 38px;
+          height: 38px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 700;
-          font-size: 1.25rem;
-          margin-bottom: 1rem;
+          font-size: 1.1rem;
+          margin-bottom: 0.3rem;
+          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+          color: #4f46e5;
         }}
         .org-node.ceo .node-avatar {{
           background: rgba(255, 255, 255, 0.2);
           color: white;
         }}
-        .org-node:not(.ceo) .node-avatar {{
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-          color: #4f46e5;
-        }}
         .node-name {{
           font-weight: 600;
-          font-size: 1.05rem;
-          margin-bottom: 0.4rem;
+          font-size: 0.95rem;
+          margin-bottom: 0.2rem;
+          white-space: normal;
         }}
         .node-position {{
-          font-size: 0.85rem;
+          font-size: 0.75rem;
           color: #6b7280;
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.2rem;
         }}
         .org-node.ceo .node-position {{
           color: rgba(255, 255, 255, 0.85);
         }}
         .node-dept {{
           display: inline-block;
-          padding: 0.25rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.7rem;
+          padding: 0.15rem 0.5rem;
+          border-radius: 12px;
+          font-size: 0.65rem;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          margin-top: 0.5rem;
+          margin-top: 0.2rem;
+          background: #fef3c7;
+          color: #92400e;
         }}
-        .dept-ejecutivo {{ background: #fef3c7; color: #92400e; }}
-        .dept-tecnologia {{ background: #dbeafe; color: #1e40af; }}
-        .dept-finanzas {{ background: #d1fae5; color: #065f46; }}
-        .dept-rrhh {{ background: #fce7f3; color: #9d174d; }}
-        .dept-marketing {{ background: #ede9fe; color: #5b21b6; }}
-        .dept-operaciones {{ background: #ffedd5; color: #9a3412; }}
-        .dept-ventas {{ background: #ccfbf1; color: #115e59; }}
-        .dept-legal {{ background: #f3e8ff; color: #6b21a8; }}
-        .header {{
-          background: white;
-          padding: 1.5rem 2rem;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-          margin-bottom: 2rem;
-          border-radius: 16px;
-          text-align: center;
+        .node-sede {{
+          font-size: 0.65rem;
+          color: #2563eb;
+          margin-top: 0.1rem;
         }}
-        .header h1 {{
-          font-size: 2rem;
-          font-weight: 700;
-          color: #1e293b;
-          margin: 0 0 0.5rem 0;
+        .node-estado {{
+          font-size: 0.65rem;
+          color: #059669;
+          margin-top: 0.1rem;
         }}
-        .header p {{
-          color: #64748b;
-          margin: 0;
-        }}
-        .node-info {{
-          font-size: 0.75rem;
-          margin-top: 0.5rem;
-          padding-top: 0.5rem;
-          border-top: 1px solid rgba(0,0,0,0.1);
-        }}
-        .org-node.ceo .node-info {{
-          border-top-color: rgba(255,255,255,0.2);
-          color: rgba(255,255,255,0.9);
-        }}
-        .info-item {{
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.25rem;
-          color: #64748b;
-        }}
-        .org-node.ceo .info-item {{
-          color: rgba(255,255,255,0.85);
+        .node-tipo {{
+          font-size: 0.65rem;
+          color: #b91c1c;
+          margin-top: 0.1rem;
         }}
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Organigrama Empresarial</h1>
-        <p>Estructura Organizacional</p>
+      <div class="header" style="text-align:center;margin-bottom:1rem;">
+        <h1 style="font-size:1.5rem;font-weight:700;color:#1e293b;">Organigrama Empresarial</h1>
+        <p style="color:#64748b;margin:0;">Estructura Organizacional Compacta</p>
       </div>
       <div id="org-chart" class="org-tree"></div>
       <script>
         const employees = {empleados_json};
         function getInitials(name) {{
           return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-        }}
-        function getDeptClass(dept) {{
-          const classes = {{
-            'Ejecutivo': 'dept-ejecutivo',
-            'Tecnología': 'dept-tecnologia',
-            'Finanzas': 'dept-finanzas',
-            'RRHH': 'dept-rrhh',
-            'Recursos Humanos': 'dept-rrhh',
-            'Marketing': 'dept-marketing',
-            'Operaciones': 'dept-operaciones',
-            'Ventas': 'dept-ventas',
-            'Legal': 'dept-legal'
-          }};
-          return classes[dept] || 'dept-ejecutivo';
         }}
         function buildTree() {{
           const map = new Map();
@@ -259,31 +217,14 @@ def render_organigrama(df_empleados):
               const nodeDiv = document.createElement('div');
               const isCEO = level === 0 && !node.parent_id;
               nodeDiv.className = `org-node ${{isCEO ? 'ceo' : node.children.length > 0 ? 'manager' : ''}}`;
-              const emailInfo = node.email ? `
-                <div class="info-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                    <polyline points="22,6 12,13 2,6"></polyline>
-                  </svg>
-                  ${{node.email}}
-                </div>
-              ` : '';
-              const phoneInfo = node.phone ? `
-                <div class="info-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                  </svg>
-                  ${{node.phone}}
-                </div>
-              ` : '';
               nodeDiv.innerHTML = `
-                <div class="node-avatar">
-                  ${{getInitials(node.name)}}
-                </div>
+                <div class="node-avatar">${{getInitials(node.name)}}</div>
                 <div class="node-name">${{node.name}}</div>
                 <div class="node-position">${{node.position}}</div>
-                <span class="node-dept ${{getDeptClass(node.department)}}">${{node.department}}</span>
-                ${{emailInfo || phoneInfo ? `<div class="node-info">${{emailInfo}}${{phoneInfo}}</div>` : ''}}
+                <span class="node-dept">${{node.department}}</span>
+                <div class="node-sede">${{node.sede || ''}}</div>
+                <div class="node-estado">${{node.estado || ''}}</div>
+                <div class="node-tipo">${{node.tipo || ''}}</div>
               `;
               levelDiv.appendChild(nodeDiv);
             }});
@@ -300,7 +241,7 @@ def render_organigrama(df_empleados):
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=900, scrolling=True)
+    st.components.v1.html(html_code, height=700, scrolling=True)
 
 with tab1:
     st.subheader("🌳 Organigrama Visual Interactivo")
