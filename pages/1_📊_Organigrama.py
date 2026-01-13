@@ -111,6 +111,7 @@ with tab2:
           <h3 style='color:#003d6e;'>📄 Manual de Funciones</h3>
     """, unsafe_allow_html=True)
 
+    # --- Búsqueda de manual igual que en Gestión Inteligente ---
     manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
     if manual_file_id:
         pdf_bytes = download_manual_from_drive(manual_file_id)
@@ -213,21 +214,23 @@ def generate_org_pdf(df, analysis_text, conclusions_text):
     pdf.cell(0, 10, "Organigrama Empresarial - SERVINET", ln=True, align="C")
     pdf.ln(10)
     pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 8, "Análisis y Comentarios:")
-    pdf.set_font("Arial", "I", 11)
-    pdf.multi_cell(0, 8, analysis_text)
+    # Divide el análisis en líneas cortas
+    for line in analysis_text.split('\n'):
+        pdf.multi_cell(0, 8, line)
     pdf.ln(5)
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 8, "Conclusiones:")
     pdf.set_font("Arial", "I", 11)
-    pdf.multi_cell(0, 8, conclusions_text)
+    for line in conclusions_text.split('\n'):
+        pdf.multi_cell(0, 8, line)
     pdf.ln(10)
     pdf.set_font("Arial", "B", 13)
     pdf.cell(0, 8, "Estructura Organizacional:", ln=True)
     pdf.set_font("Arial", "", 11)
     # Listado jerárquico simple
     for idx, row in df.iterrows():
-        pdf.cell(0, 8, f"{row['NOMBRE COMPLETO']} - {row['CARGO']} ({row['DEPARTAMENTO']})", ln=True)
+        txt = f"{row['NOMBRE COMPLETO']} - {row['CARGO']} ({row['DEPARTAMENTO']})"
+        pdf.multi_cell(0, 8, txt)
     pdf.ln(5)
     pdf.set_font("Arial", "I", 9)
     pdf.cell(0, 8, "Documento generado automáticamente por el sistema de RRHH SERVINET.", ln=True)
