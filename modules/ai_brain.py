@@ -53,32 +53,40 @@ def generate_role_profile(cargo, company_context, force=False):
 
 def generate_evaluation(cargo, company_context):
     """
-    Crea la evaluación de desempeño en formato JSON.
-    Modelo: gpt-4o-mini
+    Crea una super evaluación de desempeño (mínimo 30 preguntas, selección múltiple/Likert).
     """
     if not client: return {}
 
     prompt = f"""
-    Eres experto en psicometría. Basado en los manuales de Servinet, crea una evaluación para: "{cargo}".
-    
-    SALIDA: Un JSON válido con esta estructura exacta:
+Eres experto en psicometría y recursos humanos. Basado en los manuales y contexto de Servinet, diseña una evaluación de desempeño para el cargo "{cargo}".
+REQUISITOS:
+- Mínimo 30 preguntas (pueden ser más).
+- Todas las preguntas deben ser de selección (NO abiertas), usando escala Likert de 1 a 5 o selección múltiple.
+- Cubre: habilidades técnicas, blandas, clima laboral, liderazgo, KPIs, pertenencia, satisfacción, comunicación, innovación, cumplimiento, etc.
+- Entrega un JSON con la siguiente estructura EXACTA:
+{{
+  "preguntas": [
     {{
-        "preguntas_tecnicas": ["pregunta situacional 1", "pregunta 2", "pregunta 3"],
-        "preguntas_blandas": ["pregunta 1", "pregunta 2"],
-        "kpis_a_medir": ["kpi 1", "kpi 2"]
-    }}
+      "texto": "Pregunta 1...",
+      "tipo": "likert",  // o "multiple"
+      "opciones": ["1 - Nunca", "2 - Rara vez", "3 - A veces", "4 - Frecuentemente", "5 - Siempre"]
+    }},
+    ...
+  ]
+}}
+NO incluyas preguntas abiertas. Haz las preguntas claras, variadas y relevantes para el cargo.
     """
-    
+
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini", # <--- MODELO ECONÓMICO
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
         st.error(f"Error generando evaluación: {e}")
-        return {"preguntas_tecnicas": ["Error generando preguntas"], "preguntas_blandas": []}
+        return {"preguntas": []}
 
 def analyze_results(respuestas_json):
     """
