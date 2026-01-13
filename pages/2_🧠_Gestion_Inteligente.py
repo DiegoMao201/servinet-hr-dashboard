@@ -14,6 +14,7 @@ import pandas as pd
 import re
 import io
 from fpdf import FPDF
+import datetime
 
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
@@ -69,17 +70,23 @@ with tab1:
             if st.button("✨ Generar Manual de Funciones Personalizado"):
                 with st.spinner("Redactando documento oficial..."):
                     perfil_html = generate_role_profile(cargo, st.session_state["company_context"], force=force_regen)
+                    logo_path = os.path.abspath("logo_servinet.jpg")
+                    now = datetime.datetime.now()
+                    anio_actual = now.year
+                    vigencia = f"Enero {anio_actual} - Diciembre {anio_actual}"
+                    fecha_emision = now.strftime("%d/%m/%Y")
+
                     datos_manual = {
                         "empresa": "GRUPO SERVINET",
-                        "logo_url": os.path.abspath("logo_servinet.jpg"),
+                        "logo_url": logo_path,
                         "codigo_doc": f"DOC-MF-{str(datos.get('CEDULA', '001'))}",
                         "departamento": datos.get("DEPARTAMENTO", ""),
                         "titulo": f"Manual de Funciones: {cargo}",
                         "descripcion": f"Manual profesional para el cargo {cargo} en {datos.get('SEDE', '')}.",
                         "version": "1.0",
-                        "vigencia": "Enero 2025 - Diciembre 2025",
-                        "fecha_emision": pd.Timestamp.now().strftime("%d/%m/%Y"),
-                        "empleado": seleccion,
+                        "vigencia": vigencia,
+                        "fecha_emision": fecha_emision,
+                        "empleado": seleccion if 'seleccion' in locals() else empleado,
                         "cargo": cargo,
                         "objetivo_cargo": get_section(perfil_html, "🎯"),
                         "funciones_principales": get_section(perfil_html, "📜"),

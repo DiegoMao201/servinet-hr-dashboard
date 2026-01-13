@@ -7,10 +7,16 @@ from modules.pdf_generator import create_manual_pdf_from_template
 from modules.document_reader import get_company_context
 import os
 import re
+import datetime
 
 st.set_page_config(page_title="Ficha de Empleado", page_icon="👤", layout="wide")
 st.image("logo_servinet.jpg", width=120)
 st.title("👤 Ficha de Empleado y Gestión")
+
+now = datetime.datetime.now()
+anio_actual = now.year
+vigencia = f"Enero {anio_actual} - Diciembre {anio_actual}"
+fecha_emision = now.strftime("%d/%m/%Y")
 
 df = get_employees()
 if df.empty:
