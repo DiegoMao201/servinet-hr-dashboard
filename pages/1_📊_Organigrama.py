@@ -71,7 +71,7 @@ with tab1:
     )])
     fig.update_layout(title_text="Organigrama Interactivo", font_size=12, height=700)
     st.plotly_chart(fig, use_container_width=True)
-    st.download_button("📥 Exportar Organigrama PNG", fig.to_image(format="png"), file_name="organigrama.png")
+    # st.download_button("📥 Exportar Organigrama PNG", fig.to_image(format="png"), file_name="organigrama.png")
 
 with tab2:
     col1, col2, col3 = st.columns(3)
