@@ -73,28 +73,13 @@ def render_organigrama(df_empleados):
           justify-content: center;
           gap: 0.5rem;
           position: relative;
-          padding-top: 0.5rem;
+          padding-top: 1rem;
           flex-wrap: wrap;
-        }}
-        .org-level::before {{
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 50%;
-          width: 2px;
-          height: 0.8rem;
-          background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
-        }}
-        .org-level:first-child::before {{
-          display: none;
-        }}
-        .org-level:first-child {{
-          padding-top: 0;
         }}
         .org-node {{
           position: relative;
-          min-width: 110px;
-          max-width: 140px;
+          min-width: 120px;
+          max-width: 160px;
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
           border-radius: 10px;
           padding: 0.5rem 0.7rem;
@@ -104,14 +89,10 @@ def render_organigrama(df_empleados):
           cursor: pointer;
           margin-bottom: 0.3rem;
         }}
-        .org-node:hover {{
-          transform: translateY(-2px) scale(1.04);
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
-        }}
         .org-node.ceo {{
           background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
           color: white;
-          min-width: 140px;
+          min-width: 160px;
         }}
         .org-node.manager {{
           border-left: 2px solid #6366f1;
@@ -179,12 +160,24 @@ def render_organigrama(df_empleados):
           color: #64748b;
           margin-top: 0.05rem;
         }}
+        .connector {{
+          position: absolute;
+          left: 50%;
+          top: 100%;
+          width: 2px;
+          height: 20px;
+          background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
+          z-index: 1;
+        }}
+        .org-level:not(:first-child) .org-node {{
+          margin-top: 20px;
+        }}
       </style>
     </head>
     <body>
       <div class="header" style="text-align:center;margin-bottom:0.5rem;">
         <h1 style="font-size:1.1rem;font-weight:700;color:#1e293b;">Organigrama Empresarial</h1>
-        <p style="color:#64748b;margin:0;font-size:0.8rem;">Estructura Organizacional Compacta</p>
+        <p style="color:#64748b;margin:0;font-size:0.8rem;">Estructura Organizacional Jerárquica</p>
       </div>
       <div id="org-chart" class="org-tree"></div>
       <script>
@@ -212,7 +205,7 @@ def render_organigrama(df_empleados):
           const tree = buildTree();
           const orgChart = document.getElementById('org-chart');
           orgChart.innerHTML = '';
-          function renderLevel(nodes, level = 0) {{
+          function renderLevel(nodes, level = 0, parentDiv = null) {{
             if (nodes.length === 0) return;
             const levelDiv = document.createElement('div');
             levelDiv.className = 'org-level';
@@ -232,12 +225,19 @@ def render_organigrama(df_empleados):
                 <div class="node-contact">${{node.phone || ''}}</div>
               `;
               levelDiv.appendChild(nodeDiv);
+              // Conector visual (línea vertical)
+              if (parentDiv) {{
+                const connector = document.createElement('div');
+                connector.className = 'connector';
+                parentDiv.appendChild(connector);
+              }}
             }});
             orgChart.appendChild(levelDiv);
-            const allChildren = nodes.flatMap(n => n.children);
-            if (allChildren.length > 0) {{
-              renderLevel(allChildren, level + 1);
-            }}
+            nodes.forEach(node => {{
+              if (node.children && node.children.length > 0) {{
+                renderLevel(node.children, level + 1, levelDiv);
+              }}
+            }});
           }}
           renderLevel(tree);
         }}
@@ -246,10 +246,10 @@ def render_organigrama(df_empleados):
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=600, scrolling=True)
+    st.components.v1.html(html_code, height=800, scrolling=True)
 
 with tab1:
-    st.subheader("🌳 Organigrama Visual Interactivo")
+    st.subheader("🌳 Organigrama Visual Jerárquico")
     df_org = preparar_df_organigrama(df)
     render_organigrama(df_org)
 
