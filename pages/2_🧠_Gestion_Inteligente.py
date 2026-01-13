@@ -71,7 +71,7 @@ with tab1:
                         "empresa": "GRUPO SERVINET",
                         "logo_url": os.path.abspath("logo_servinet.jpg"),
                         "codigo_doc": f"DOC-MF-{str(datos.get('CEDULA', '001'))}",
-                        "departamento": datos.get("SEDE", ""),
+                        "departamento": datos.get("DEPARTAMENTO", ""),
                         "titulo": f"Manual de Funciones: {cargo}",
                         "descripcion": f"Manual profesional para el cargo {cargo} en {datos.get('SEDE', '')}.",
                         "version": "1.0",

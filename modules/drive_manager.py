@@ -91,28 +91,29 @@ def download_manual_from_drive(file_id):
     return fh.read()
 
 def get_or_create_manuals_folder():
-    """Busca o crea la subcarpeta 'MANUALES_FUNCIONES' en Mi unidad."""
+    """
+    Busca o crea la subcarpeta 'MANUAL_FUNCIONES' dentro de 'SERVINET_APP_DATA' en Mi unidad.
+    """
     creds = get_creds()
     service = build('drive', 'v3', credentials=creds)
-    folder_name = "MANUALES_FUNCIONES"
-    query = (
-        f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
-        f"and trashed=false"
-    )
-    results = service.files().list(
-        q=query,
-        fields="files(id, name)"
-    ).execute()
-    folders = results.get('files', [])
+    # Busca la carpeta principal
+    parent_query = "name='SERVINET_APP_DATA' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    parent_results = service.files().list(q=parent_query, fields="files(id, name)").execute()
+    parents = parent_results.get('files', [])
+    if not parents:
+        # Si no existe la carpeta principal, la crea
+        parent_metadata = {'name': 'SERVINET_APP_DATA', 'mimeType': 'application/vnd.google-apps.folder'}
+        parent = service.files().create(body=parent_metadata, fields='id').execute()
+        parent_id = parent.get('id')
+    else:
+        parent_id = parents[0]['id']
+    # Busca la subcarpeta de manuales dentro de la principal
+    folder_query = f"name='MANUAL_FUNCIONES' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+    folder_results = service.files().list(q=folder_query, fields="files(id, name)").execute()
+    folders = folder_results.get('files', [])
     if folders:
         return folders[0]['id']
-    # Si no existe, la crea en Mi unidad
-    file_metadata = {
-        'name': folder_name,
-        'mimeType': 'application/vnd.google-apps.folder'
-    }
-    folder = service.files().create(
-        body=file_metadata,
-        fields='id'
-    ).execute()
+    # Si no existe, la crea dentro de la principal
+    file_metadata = {'name': 'MANUAL_FUNCIONES', 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_id]}
+    folder = service.files().create(body=file_metadata, fields='id').execute()
     return folder.get('id')

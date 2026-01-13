@@ -130,14 +130,20 @@ with tab2:
         """, unsafe_allow_html=True)
         if st.button("✨ Generar Manual con IA"):
             st.info("Generando manual...")
-            from modules.document_reader import get_company_context
+            # Usa el mismo contexto y prompt que Gestión Inteligente
             company_context = get_company_context(manuals_folder_id)
             perfil_html = generate_role_profile(cargo, company_context)
+            # Igual que en Gestion_Inteligente
+            import re
+            def get_section(html, keyword):
+                pattern = rf"{keyword}(.*?)(<h2|<div class=\"section-title\"|$)"
+                match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+                return match.group(1).strip() if match else ""
             datos_manual = {
                 "empresa": "GRUPO SERVINET",
                 "logo_url": os.path.abspath("logo_servinet.jpg"),
                 "codigo_doc": f"DOC-MF-{str(datos.get('CEDULA', '001'))}",
-                "departamento": datos.get("SEDE", ""),
+                "departamento": datos.get("DEPARTAMENTO", ""),
                 "titulo": f"Manual de Funciones: {cargo}",
                 "descripcion": f"Manual profesional para el cargo {cargo} en {datos.get('SEDE', '')}.",
                 "version": "1.0",
@@ -145,13 +151,13 @@ with tab2:
                 "fecha_emision": pd.Timestamp.now().strftime("%d/%m/%Y"),
                 "empleado": empleado,
                 "cargo": cargo,
-                "objetivo_cargo": "",
-                "funciones_principales": "",
-                "procesos_clave": "",
-                "habilidades_blandas": "",
-                "kpis_sugeridos": "",
-                "perfil_ideal": "",
-                "observaciones": "",
+                "objetivo_cargo": get_section(perfil_html, "🎯"),
+                "funciones_principales": get_section(perfil_html, "📜"),
+                "procesos_clave": get_section(perfil_html, "🔄"),
+                "habilidades_blandas": get_section(perfil_html, "💡"),
+                "kpis_sugeridos": get_section(perfil_html, "📊"),
+                "perfil_ideal": get_section(perfil_html, "🏅"),
+                "observaciones": get_section(perfil_html, "📝"),
             }
             pdf_filename = create_manual_pdf_from_template(datos_manual, cargo, empleado=empleado)
             upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
