@@ -23,7 +23,12 @@ if df.empty:
     st.warning("No hay datos disponibles o falló la conexión. Verifica que el archivo en Drive tenga datos.")
     st.stop()
 
-# Filtros avanzados
+# --- FILTRO: Solo empleados activos (no retirados) para el organigrama ---
+df_org_base = df.copy()
+if "ESTADO" in df_org_base.columns:
+    df_org_base = df_org_base[~df_org_base["ESTADO"].str.upper().str.contains("RETIRADO")]
+
+# Filtros avanzados (para la ficha editable puedes usar df completo o solo activos, según prefieras)
 areas = sorted(df['AREA'].dropna().unique()) if 'AREA' in df.columns else []
 sedes = sorted(df['SEDE'].dropna().unique()) if 'SEDE' in df.columns else []
 departamentos = sorted(df['DEPARTAMENTO'].dropna().unique()) if 'DEPARTAMENTO' in df.columns else []
@@ -250,7 +255,7 @@ def render_organigrama(df_empleados):
 
 with tab1:
     st.subheader("🌳 Organigrama Visual Jerárquico")
-    df_org = preparar_df_organigrama(df)
+    df_org = preparar_df_organigrama(df_org_base)
     render_organigrama(df_org)
 
 with tab2:
