@@ -6,6 +6,8 @@ from modules.ai_brain import analyze_results, generate_role_profile
 from modules.pdf_generator import create_manual_pdf_from_template
 import os
 import plotly.graph_objects as go
+import io
+from fpdf import FPDF
 
 st.set_page_config(page_title="Organigrama", page_icon="📊", layout="wide")
 st.image("logo_servinet.jpg", width=120)
@@ -203,3 +205,64 @@ with tab2:
         celular=datos.get('CELULAR', 'No registrado'),
         centro_trabajo=datos.get('CENTRO TRABAJO', '--')
     ), unsafe_allow_html=True)
+
+def generate_org_pdf(df, analysis_text, conclusions_text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "Organigrama Empresarial - SERVINET", ln=True, align="C")
+    pdf.ln(10)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 8, "Análisis y Comentarios:")
+    pdf.set_font("Arial", "I", 11)
+    pdf.multi_cell(0, 8, analysis_text)
+    pdf.ln(5)
+    pdf.set_font("Arial", "", 12)
+    pdf.multi_cell(0, 8, "Conclusiones:")
+    pdf.set_font("Arial", "I", 11)
+    pdf.multi_cell(0, 8, conclusions_text)
+    pdf.ln(10)
+    pdf.set_font("Arial", "B", 13)
+    pdf.cell(0, 8, "Estructura Organizacional:", ln=True)
+    pdf.set_font("Arial", "", 11)
+    # Listado jerárquico simple
+    for idx, row in df.iterrows():
+        pdf.cell(0, 8, f"{row['NOMBRE COMPLETO']} - {row['CARGO']} ({row['DEPARTAMENTO']})", ln=True)
+    pdf.ln(5)
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(0, 8, "Documento generado automáticamente por el sistema de RRHH SERVINET.", ln=True)
+    pdf_bytes = io.BytesIO()
+    pdf.output(pdf_bytes)
+    pdf_bytes.seek(0)
+    return pdf_bytes
+
+# --- Análisis y conclusiones automáticos ---
+def get_org_analysis(df):
+    total = len(df)
+    departamentos = df['DEPARTAMENTO'].value_counts().to_dict()
+    sedes = df['SEDE'].value_counts().to_dict()
+    managers = df[df['CARGO'].str.contains("Jefe|Gerente|Director", case=False, na=False)]
+    analysis = f"- Total de empleados: {total}\n"
+    analysis += f"- Departamentos: {', '.join([f'{k} ({v})' for k,v in departamentos.items()])}\n"
+    analysis += f"- Sedes: {', '.join([f'{k} ({v})' for k,v in sedes.items()])}\n"
+    analysis += f"- Managers detectados: {len(managers)}\n"
+    return analysis
+
+def get_org_conclusions(df):
+    # Puedes usar IA aquí si quieres, pero aquí va un ejemplo simple:
+    if len(df) < 10:
+        return "La empresa tiene una estructura compacta. Se recomienda fortalecer los equipos clave y planificar el crecimiento."
+    else:
+        return "La estructura organizacional es robusta. Se recomienda revisar los flujos de reporte y fortalecer la comunicación entre departamentos."
+
+# --- Botón para exportar PDF ---
+if st.button("📄 Exportar Organigrama y Análisis en PDF"):
+    analysis_text = get_org_analysis(df)
+    conclusions_text = get_org_conclusions(df)
+    pdf_bytes = generate_org_pdf(df, analysis_text, conclusions_text)
+    st.download_button(
+        label="Descargar PDF profesional",
+        data=pdf_bytes,
+        file_name="Organigrama_SERVINET.pdf",
+        mime="application/pdf"
+    )
