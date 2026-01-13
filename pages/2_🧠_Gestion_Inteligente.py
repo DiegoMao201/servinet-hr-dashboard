@@ -1,7 +1,7 @@
 import streamlit as st
 from modules.database import get_employees
 from modules.document_reader import get_company_context
-from modules.ai_brain import generate_role_profile, generate_evaluation, analyze_results
+from modules.ai_brain import generate_role_profile_by_sections, generate_evaluation, analyze_results
 from modules.drive_manager import (
     get_or_create_manuals_folder,
     find_manual_in_drive,
@@ -69,7 +69,7 @@ with tab1:
             st.warning("⚠️ No existe un manual para este cargo o se va a regenerar.")
             if st.button("✨ Generar Manual de Funciones Personalizado"):
                 with st.spinner("Redactando documento oficial..."):
-                    perfil_html = generate_role_profile(cargo, st.session_state["company_context"], force=force_regen)
+                    perfil_html = generate_role_profile_by_sections(cargo, st.session_state["company_context"], force=force_regen)
                     logo_path = os.path.abspath("logo_servinet.jpg")
                     now = datetime.datetime.now()
                     anio_actual = now.year

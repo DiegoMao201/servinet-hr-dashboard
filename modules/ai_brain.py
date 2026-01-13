@@ -25,7 +25,7 @@ def generate_role_profile(cargo, company_context, force=False):
     prompt = f"""
     Eres consultor senior en Recursos Humanos, experto en Normas ISO, gestión de talento, análisis organizacional y transformación digital en empresas de telecomunicaciones como SERVINET.
     CONTEXTO DE LA EMPRESA (Manuales, cultura, procesos, informes, estructura, diagnósticos, etc.):
-    {company_context[:10000]}
+    {company_context[:4000]}
     TAREA:
     Redacta un manual de funciones empresarial, profesional y EXTREMADAMENTE COMPLETO para el cargo: "{cargo}".
     El resultado debe ser HTML limpio, visualmente atractivo y corporativo, usando colores azul, gris y amarillo, tablas, listas, iconos y títulos claros.
@@ -127,3 +127,59 @@ def analyze_results(respuestas_json):
         return response.choices[0].message.content
     except Exception as e:
         return f"Error analizando resultados: {e}"
+
+def generate_role_profile_by_sections(cargo, company_context):
+    """
+    Genera el manual de funciones por secciones, garantizando que no falte ninguna.
+    """
+    if not client:
+        return "⚠️ Error: Falta configurar OPENAI_API_KEY."
+
+    # Define las secciones y sus instrucciones
+    secciones = [
+        ("🎯 Objetivo del Cargo", "Redacta el objetivo estratégico del cargo en 2-3 líneas, resaltando su importancia para la empresa."),
+        ("📜 Funciones Principales", "Lista las funciones principales del cargo, usando viñetas y subtítulos si aplica."),
+        ("🔄 Procesos Clave", "Describe los procesos clave del cargo en una tabla o lista, con breve descripción de cada proceso."),
+        ("🗺️ Mapa de Procesos", "Crea un diagrama textual o tabla que muestre las relaciones entre procesos y áreas para este cargo."),
+        ("🧩 Matriz de Competencias", "Genera una tabla con competencias técnicas y blandas, nivel requerido y nivel actual promedio en la empresa."),
+        ("💡 Habilidades Blandas Requeridas", "Lista las habilidades blandas requeridas, con ejemplos y casos prácticos."),
+        ("🏆 Habilidades Técnicas Requeridas", "Lista y tabla con certificaciones, herramientas y tecnologías necesarias."),
+        ("📊 KPIs Sugeridos", "Tabla con nombre del KPI, objetivo, frecuencia de medición y responsable."),
+        ("🏅 Perfil Ideal", "Describe el perfil ideal: formación, experiencia, competencias, en tabla o lista."),
+        ("🧠 Análisis de Riesgos", "Identifica riesgos operativos, humanos y tecnológicos asociados al cargo."),
+        ("🚦 Alertas y Recomendaciones", "Resalta sugerencias de mejora, puntos críticos y alertas de gestión."),
+        ("🔍 Diagnóstico Comparativo", "Compara el cargo con roles similares en el sector, identifica brechas y oportunidades."),
+        ("📝 Observaciones y recomendaciones finales", "Resalta sugerencias de mejora y puntos críticos."),
+        ("📚 Referencias y fuentes", "Lista de documentos, manuales y políticas internas usadas como base."),
+    ]
+
+    contexto = company_context[:3000]  # Reduce para dejar espacio al output
+    manual_html = ""
+    for emoji, instruccion in secciones:
+        prompt = f"""
+Eres consultor senior en Recursos Humanos, experto en Normas ISO, gestión de talento y análisis organizacional.
+Contexto de la empresa (extracto relevante):
+{contexto}
+Cargo: "{cargo}"
+
+INSTRUCCIÓN:
+{instruccion}
+- Usa HTML limpio, visualmente atractivo y corporativo (azul, gris, amarillo).
+- No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>.
+- Encabeza la sección con: <div class="section-title">{emoji} {instruccion.split('.')[0]}</div>
+- Si no tienes información suficiente, escribe "No aplica" o "Sin información".
+- Sé profesional y concreto.
+"""
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
+            )
+            content = response.choices[0].message.content
+            # Limpia posibles etiquetas extra
+            content = content.replace("```html", "").replace("```", "").strip()
+            manual_html += f'\n<div class="section">\n{content}\n</div>\n'
+        except Exception as e:
+            manual_html += f'\n<div class="section"><div class="section-title">{emoji} {instruccion.split(".")[0]}</div>Error generando sección: {e}</div>\n'
+    return manual_html
