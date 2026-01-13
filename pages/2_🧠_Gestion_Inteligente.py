@@ -101,3 +101,59 @@ with tab1:
                         os.remove(pdf_filename)
                     except Exception:
                         pass
+
+with tab2:
+    datos = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
+    cargo = datos['CARGO']
+    st.subheader(f"Evaluación de Desempeño para: {seleccion} ({cargo})")
+    st.info("La IA genera el formulario según el cargo y contexto empresarial.")
+
+    # 1. Genera el formulario con IA
+    eval_form = generate_evaluation(cargo, st.session_state["company_context"])
+    respuestas = {}
+    with st.form("form_eval"):
+        st.markdown("### Preguntas Técnicas")
+        for idx, pregunta in enumerate(eval_form.get("preguntas_tecnicas", [])):
+            respuestas[f"tecnica_{idx}"] = st.text_area(f"🔧 {pregunta}", key=f"tecnica_{idx}")
+
+        st.markdown("### Preguntas de Habilidades Blandas")
+        for idx, pregunta in enumerate(eval_form.get("preguntas_blandas", [])):
+            respuestas[f"blanda_{idx}"] = st.text_area(f"💡 {pregunta}", key=f"blanda_{idx}")
+
+        st.markdown("### KPIs a Medir")
+        for idx, kpi in enumerate(eval_form.get("kpis_a_medir", [])):
+            respuestas[f"kpi_{idx}"] = st.slider(f"📊 {kpi}", min_value=0, max_value=100, value=50, key=f"kpi_{idx}")
+
+        enviado = st.form_submit_button("Enviar Evaluación")
+
+    # 2. Guarda las respuestas en Google Sheets
+    if enviado:
+        import json
+        from modules.database import save_content_to_memory
+        respuestas_json = json.dumps(respuestas, ensure_ascii=False)
+        save_content_to_memory(cargo, "EVALUACION", respuestas_json)
+        st.success("✅ Evaluación registrada correctamente.")
+
+        # 3. Análisis IA y cronograma de capacitación
+        analisis = analyze_results(respuestas_json)
+        st.markdown("### 🧠 Análisis IA")
+        st.markdown(analisis, unsafe_allow_html=True)
+
+        # 4. Cronograma de capacitación (extraído del análisis)
+        st.markdown("### 📅 Cronograma de Capacitación")
+        # Puedes extraer los temas del análisis IA y mostrarlos como cronograma
+        import re
+        temas = re.findall(r'Plan de Capacitación.*?:\s*(.*)', analisis)
+        if temas:
+            for idx, tema in enumerate(temas[0].split('\n')):
+                if tema.strip():
+                    st.markdown(f"- {tema.strip()}")
+        else:
+            st.info("La IA no detectó temas urgentes de capacitación.")
+
+        st.markdown("---")
+        st.success("¡Todo el flujo está conectado! Puedes ver el historial y progreso en la pestaña de desempeño global.")
+
+with tab3:
+    st.subheader("Resultados Globales")
+    st.info("Pronto podrás ver el desempeño y progreso de todos los colaboradores aquí.")

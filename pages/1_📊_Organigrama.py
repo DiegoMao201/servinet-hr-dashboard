@@ -5,7 +5,7 @@ from modules.drive_manager import get_or_create_manuals_folder, find_manual_in_d
 from modules.ai_brain import analyze_results, generate_role_profile
 from modules.pdf_generator import create_manual_pdf_from_template
 import os
-import graphviz
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Organigrama", page_icon="📊", layout="wide")
 st.image("logo_servinet.jpg", width=120)
@@ -25,18 +25,51 @@ cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 tab1, tab2 = st.tabs(["👥 Organigrama Visual", "👤 Ficha de Empleado"])
 
 with tab1:
-    st.subheader("Organigrama de la Empresa")
-    dot = graphviz.Digraph()
-    for _, row in df.iterrows():
+    st.subheader("Organigrama de la Empresa (Interactivo)")
+    # Construir nodos y edges para plotly
+    nodes = []
+    edges = []
+    color_map = {dep: f"rgba({50+idx*30},100,200,0.8)" for idx, dep in enumerate(departamentos)}
+    for idx, row in df.iterrows():
         nombre = row.get("NOMBRE COMPLETO", "")
         cargo = row.get("CARGO", "")
         dep = row.get("DEPARTAMENTO", "")
         sede = row.get("SEDE", "")
-        dot.node(nombre, f"{nombre}\n{cargo}\n{dep}\n{sede}")
         jefe = row.get("JEFE INMEDIATO", "")
+        nodes.append(dict(
+            id=nombre,
+            label=f"{nombre}\n{cargo}\n{dep}\n{sede}",
+            color=color_map.get(dep, "#0056b3"),
+            title=f"<b>{nombre}</b><br>{cargo}<br>{dep}<br>{sede}"
+        ))
         if jefe and jefe != nombre:
-            dot.edge(jefe, nombre)
-    st.graphviz_chart(dot)
+            edges.append((jefe, nombre))
+    # Plotly Sankey para organigrama
+    node_labels = [n['label'] for n in nodes]
+    node_colors = [n['color'] for n in nodes]
+    node_titles = [n['title'] for n in nodes]
+    node_ids = [n['id'] for n in nodes]
+    source = [node_ids.index(e[0]) for e in edges if e[0] in node_ids and e[1] in node_ids]
+    target = [node_ids.index(e[1]) for e in edges if e[0] in node_ids and e[1] in node_ids]
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=node_labels,
+            color=node_colors,
+            customdata=node_titles,
+            hovertemplate='%{customdata}<extra></extra>',
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=[1]*len(source)
+        )
+    )])
+    fig.update_layout(title_text="Organigrama Interactivo", font_size=12, height=700)
+    st.plotly_chart(fig, use_container_width=True)
+    st.download_button("📥 Exportar Organigrama PNG", fig.to_image(format="png"), file_name="organigrama.png")
 
 with tab2:
     col1, col2, col3 = st.columns(3)
@@ -58,29 +91,29 @@ with tab2:
     manuals_folder_id = get_or_create_manuals_folder()
 
     st.markdown(f"""
-    <div style='background:#f8f9fa;border-radius:16px;padding:32px;box-shadow:0 2px 12px #eee;max-width:900px;margin:auto;'>
-      <div style='display:flex;align-items:center;gap:24px;'>
-        <div style='font-size:4em;color:#003d6e;'>👤</div>
+    <div style='background:#f8f9fa;border-radius:24px;padding:40px;box-shadow:0 4px 24px #eee;max-width:900px;margin:auto;'>
+      <div style='display:flex;align-items:center;gap:32px;'>
+        <div style='font-size:5em;color:#0056b3;'>👤</div>
         <div>
-          <h2 style='color:#003d6e;margin-bottom:0;'>{empleado}</h2>
-          <div style='font-size:1.2em;color:#0056b3;font-weight:bold;'>{cargo}</div>
-          <div style='margin-top:8px;'>
-            <span style='background:#e6f7ff;color:#0056b3;padding:4px 12px;border-radius:8px;margin-right:8px;'>Sede: {datos.get('SEDE','--')}</span>
-            <span style='background:#fffbe6;color:#856404;padding:4px 12px;border-radius:8px;'>Departamento: {datos.get('DEPARTAMENTO','--')}</span>
+          <h1 style='color:#003d6e;margin-bottom:0;'>{empleado}</h1>
+          <div style='font-size:1.5em;color:#0056b3;font-weight:bold;'>{cargo}</div>
+          <div style='margin-top:12px;'>
+            <span style='background:#e6f7ff;color:#0056b3;padding:6px 16px;border-radius:12px;margin-right:12px;'>Sede: {datos.get('SEDE','--')}</span>
+            <span style='background:#fffbe6;color:#856404;padding:6px 16px;border-radius:12px;'>Departamento: {datos.get('DEPARTAMENTO','--')}</span>
           </div>
         </div>
       </div>
-      <hr style='margin:24px 0;'>
-      <div style='display:flex;gap:32px;flex-wrap:wrap;'>
-        <div style='flex:1;min-width:250px;'>
-          <h4 style='color:#003d6e;'>📄 Manual de Funciones</h4>
+      <hr style='margin:32px 0;'>
+      <div style='display:flex;gap:40px;flex-wrap:wrap;'>
+        <div style='flex:1;min-width:300px;'>
+          <h3 style='color:#003d6e;'>📄 Manual de Funciones</h3>
     """, unsafe_allow_html=True)
 
     manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
     if manual_file_id:
         pdf_bytes = download_manual_from_drive(manual_file_id)
         st.markdown("""
-        <span style='background:#d4edda;color:#155724;padding:4px 10px;border-radius:8px;'>Manual disponible</span>
+        <span style='background:#d4edda;color:#155724;padding:6px 14px;border-radius:12px;'>Manual disponible</span>
         """, unsafe_allow_html=True)
         st.download_button(
             label="📥 Descargar Manual PDF",
@@ -90,7 +123,7 @@ with tab2:
         )
     else:
         st.markdown("""
-        <span style='background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:8px;'>Sin manual de funciones</span>
+        <span style='background:#f8d7da;color:#721c24;padding:6px 14px;border-radius:12px;'>Sin manual de funciones</span>
         """, unsafe_allow_html=True)
         if st.button("✨ Generar Manual con IA"):
             st.info("Generando manual...")
@@ -134,14 +167,14 @@ with tab2:
 
     st.markdown("""
         </div>
-        <div style='flex:1;min-width:250px;'>
-          <h4 style='color:#003d6e;'>📝 Evaluaciones</h4>
+        <div style='flex:1;min-width:300px;'>
+          <h3 style='color:#003d6e;'>📝 Evaluaciones</h3>
     """, unsafe_allow_html=True)
 
     eval_text = get_saved_content(cargo, "EVALUACION")
     if eval_text:
         st.markdown("""
-        <span style='background:#d4edda;color:#155724;padding:4px 10px;border-radius:8px;'>Evaluación disponible</span>
+        <span style='background:#d4edda;color:#155724;padding:6px 14px;border-radius:12px;'>Evaluación disponible</span>
         """, unsafe_allow_html=True)
         st.download_button(
             label="📥 Descargar Evaluación (PDF/Texto)",
@@ -154,14 +187,14 @@ with tab2:
         st.markdown(analisis, unsafe_allow_html=True)
     else:
         st.markdown("""
-        <span style='background:#f8d7da;color:#721c24;padding:4px 10px;border-radius:8px;'>Sin evaluación registrada</span>
+        <span style='background:#f8d7da;color:#721c24;padding:6px 14px;border-radius:12px;'>Sin evaluación registrada</span>
         """, unsafe_allow_html=True)
 
     st.markdown("""
         </div>
       </div>
-      <hr style='margin:24px 0;'>
-      <div style='margin-top:16px;'>
+      <hr style='margin:32px 0;'>
+      <div style='margin-top:20px;'>
         <b>Correo:</b> {correo} &nbsp; | &nbsp; <b>Celular:</b> {celular} &nbsp; | &nbsp; <b>Centro de Trabajo:</b> {centro_trabajo}
       </div>
     </div>
