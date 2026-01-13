@@ -9,9 +9,9 @@ import os
 import re
 import datetime
 
-st.set_page_config(page_title="Ficha de Empleado", page_icon="👤", layout="wide")
+st.set_page_config(page_title="Organigrama y Ficha", page_icon="👤", layout="wide")
 st.image("logo_servinet.jpg", width=120)
-st.title("👤 Ficha de Empleado y Gestión")
+st.title("👤 Gestión de Empleados y Organigrama")
 
 now = datetime.datetime.now()
 anio_actual = now.year
@@ -29,85 +29,363 @@ sedes = sorted(df['SEDE'].dropna().unique()) if 'SEDE' in df.columns else []
 departamentos = sorted(df['DEPARTAMENTO'].dropna().unique()) if 'DEPARTAMENTO' in df.columns else []
 cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 
-col1, col2, col3, col4 = st.columns(4)
-filtro_area = col1.selectbox("Filtrar por área", ["Todas"] + areas)
-filtro_sede = col2.selectbox("Filtrar por sede", ["Todas"] + sedes)
-filtro_dep = col3.selectbox("Filtrar por departamento", ["Todos"] + departamentos)
-filtro_cargo = col4.selectbox("Filtrar por cargo", ["Todos"] + cargos)
+tab1, tab2 = st.tabs(["🌳 Organigrama Visual", "👤 Ficha de Empleado"])
 
-df_filtrado = df.copy()
-if filtro_area != "Todas" and 'AREA' in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado['AREA'] == filtro_area]
-if filtro_sede != "Todas" and 'SEDE' in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado['SEDE'] == filtro_sede]
-if filtro_dep != "Todos" and 'DEPARTAMENTO' in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado['DEPARTAMENTO'] == filtro_dep]
-if filtro_cargo != "Todos" and 'CARGO' in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado['CARGO'] == filtro_cargo]
+def preparar_df_organigrama(df):
+    # Mapea JEFE_DIRECTO (nombre) a CEDULA
+    nombre_to_id = dict(zip(df['NOMBRE COMPLETO'], df['CEDULA'].astype(str)))
+    df_org = pd.DataFrame({
+        'id': df['CEDULA'].astype(str),
+        'name': df['NOMBRE COMPLETO'],
+        'position': df['CARGO'],
+        'department': df['DEPARTAMENTO'],
+        'parent_id': df['JEFE_DIRECTO'].map(nombre_to_id).fillna('') if 'JEFE_DIRECTO' in df.columns else ['']*len(df),
+        'email': df.get('CORREO', pd.Series(['']*len(df))),
+        'phone': df.get('CELULAR', pd.Series(['']*len(df))),
+    })
+    return df_org
 
-empleado = st.selectbox("Seleccionar empleado", df_filtrado['NOMBRE COMPLETO'].unique())
-datos = df_filtrado[df_filtrado['NOMBRE COMPLETO'] == empleado].iloc[0]
-cargo = datos.get("CARGO", "")
-manuals_folder_id = get_or_create_manuals_folder()
-
-st.markdown(f"""
-<div style='background:#f8f9fa;border-radius:24px;padding:40px;box-shadow:0 4px 24px #eee;max-width:900px;margin:auto;'>
-  <div style='display:flex;align-items:center;gap:32px;'>
-    <div style='font-size:5em;color:#0056b3;'>👤</div>
-    <div>
-      <h1 style='color:#003d6e;margin-bottom:0;'>{empleado}</h1>
-      <div style='font-size:1.5em;color:#0056b3;font-weight:bold;'>{cargo}</div>
-      <div style='margin-top:12px;'>
-        <span style='background:#e6f7ff;color:#0056b3;padding:6px 16px;border-radius:12px;margin-right:12px;'>Sede: {datos.get('SEDE','--')}</span>
-        <span style='background:#fffbe6;color:#856404;padding:6px 16px;border-radius:12px;'>Departamento: {datos.get('DEPARTAMENTO','--')}</span>
+def render_organigrama(df_empleados):
+    empleados_json = df_empleados.to_json(orient='records')
+    html_code = f"""
+    <!DOCTYPE html>
+    <html lang="es" style="height: 100%;">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <script src="https://cdn.tailwindcss.com"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body {{
+          box-sizing: border-box;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          margin: 0;
+          padding: 0;
+          height: 100%;
+          background: linear-gradient(to bottom right, #f8fafc, #e0e7ff, #ede9fe);
+        }}
+        .org-tree {{
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 2rem;
+        }}
+        .org-level {{
+          display: flex;
+          justify-content: center;
+          gap: 2rem;
+          position: relative;
+          padding-top: 2rem;
+          flex-wrap: wrap;
+        }}
+        .org-level::before {{
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 50%;
+          width: 2px;
+          height: 2rem;
+          background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
+        }}
+        .org-level:first-child::before {{
+          display: none;
+        }}
+        .org-level:first-child {{
+          padding-top: 0;
+        }}
+        .org-node {{
+          position: relative;
+          min-width: 220px;
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border-radius: 16px;
+          padding: 1.5rem;
+          box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(0, 0, 0, 0.05);
+          border: 1px solid rgba(99, 102, 241, 0.2);
+          transition: all 0.3s ease;
+          cursor: pointer;
+        }}
+        .org-node:hover {{
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(99, 102, 241, 0.25), 0 4px 12px rgba(0, 0, 0, 0.1);
+        }}
+        .org-node.ceo {{
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          color: white;
+          min-width: 260px;
+        }}
+        .org-node.manager {{
+          border-left: 4px solid #6366f1;
+        }}
+        .node-avatar {{
+          width: 56px;
+          height: 56px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 1.25rem;
+          margin-bottom: 1rem;
+        }}
+        .org-node.ceo .node-avatar {{
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+        }}
+        .org-node:not(.ceo) .node-avatar {{
+          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+          color: #4f46e5;
+        }}
+        .node-name {{
+          font-weight: 600;
+          font-size: 1.05rem;
+          margin-bottom: 0.4rem;
+        }}
+        .node-position {{
+          font-size: 0.85rem;
+          color: #6b7280;
+          margin-bottom: 0.5rem;
+        }}
+        .org-node.ceo .node-position {{
+          color: rgba(255, 255, 255, 0.85);
+        }}
+        .node-dept {{
+          display: inline-block;
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 0.5rem;
+        }}
+        .dept-ejecutivo {{ background: #fef3c7; color: #92400e; }}
+        .dept-tecnologia {{ background: #dbeafe; color: #1e40af; }}
+        .dept-finanzas {{ background: #d1fae5; color: #065f46; }}
+        .dept-rrhh {{ background: #fce7f3; color: #9d174d; }}
+        .dept-marketing {{ background: #ede9fe; color: #5b21b6; }}
+        .dept-operaciones {{ background: #ffedd5; color: #9a3412; }}
+        .dept-ventas {{ background: #ccfbf1; color: #115e59; }}
+        .dept-legal {{ background: #f3e8ff; color: #6b21a8; }}
+        .header {{
+          background: white;
+          padding: 1.5rem 2rem;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+          margin-bottom: 2rem;
+          border-radius: 16px;
+          text-align: center;
+        }}
+        .header h1 {{
+          font-size: 2rem;
+          font-weight: 700;
+          color: #1e293b;
+          margin: 0 0 0.5rem 0;
+        }}
+        .header p {{
+          color: #64748b;
+          margin: 0;
+        }}
+        .node-info {{
+          font-size: 0.75rem;
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid rgba(0,0,0,0.1);
+        }}
+        .org-node.ceo .node-info {{
+          border-top-color: rgba(255,255,255,0.2);
+          color: rgba(255,255,255,0.9);
+        }}
+        .info-item {{
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.25rem;
+          color: #64748b;
+        }}
+        .org-node.ceo .info-item {{
+          color: rgba(255,255,255,0.85);
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Organigrama Empresarial</h1>
+        <p>Estructura Organizacional</p>
       </div>
-    </div>
-  </div>
-  <hr style='margin:32px 0;'>
-""", unsafe_allow_html=True)
+      <div id="org-chart" class="org-tree"></div>
+      <script>
+        const employees = {empleados_json};
+        function getInitials(name) {{
+          return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        }}
+        function getDeptClass(dept) {{
+          const classes = {{
+            'Ejecutivo': 'dept-ejecutivo',
+            'Tecnología': 'dept-tecnologia',
+            'Finanzas': 'dept-finanzas',
+            'RRHH': 'dept-rrhh',
+            'Recursos Humanos': 'dept-rrhh',
+            'Marketing': 'dept-marketing',
+            'Operaciones': 'dept-operaciones',
+            'Ventas': 'dept-ventas',
+            'Legal': 'dept-legal'
+          }};
+          return classes[dept] || 'dept-ejecutivo';
+        }}
+        function buildTree() {{
+          const map = new Map();
+          const roots = [];
+          employees.forEach(emp => {{
+            map.set(emp.id, {{ ...emp, children: [] }});
+          }});
+          employees.forEach(emp => {{
+            const node = map.get(emp.id);
+            if (emp.parent_id && map.has(emp.parent_id)) {{
+              map.get(emp.parent_id).children.push(node);
+            }} else {{
+              roots.push(node);
+            }}
+          }});
+          return roots;
+        }}
+        function renderOrgChart() {{
+          const tree = buildTree();
+          const orgChart = document.getElementById('org-chart');
+          orgChart.innerHTML = '';
+          function renderLevel(nodes, level = 0) {{
+            if (nodes.length === 0) return;
+            const levelDiv = document.createElement('div');
+            levelDiv.className = 'org-level';
+            nodes.forEach(node => {{
+              const nodeDiv = document.createElement('div');
+              const isCEO = level === 0 && !node.parent_id;
+              nodeDiv.className = `org-node ${{isCEO ? 'ceo' : node.children.length > 0 ? 'manager' : ''}}`;
+              const emailInfo = node.email ? `
+                <div class="info-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                  </svg>
+                  ${{node.email}}
+                </div>
+              ` : '';
+              const phoneInfo = node.phone ? `
+                <div class="info-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                  </svg>
+                  ${{node.phone}}
+                </div>
+              ` : '';
+              nodeDiv.innerHTML = `
+                <div class="node-avatar">
+                  ${{getInitials(node.name)}}
+                </div>
+                <div class="node-name">${{node.name}}</div>
+                <div class="node-position">${{node.position}}</div>
+                <span class="node-dept ${{getDeptClass(node.department)}}">${{node.department}}</span>
+                ${{emailInfo || phoneInfo ? `<div class="node-info">${{emailInfo}}${{phoneInfo}}</div>` : ''}}
+              `;
+              levelDiv.appendChild(nodeDiv);
+            }});
+            orgChart.appendChild(levelDiv);
+            const allChildren = nodes.flatMap(n => n.children);
+            if (allChildren.length > 0) {{
+              renderLevel(allChildren, level + 1);
+            }}
+          }}
+          renderLevel(tree);
+        }}
+        renderOrgChart();
+      </script>
+    </body>
+    </html>
+    """
+    st.components.v1.html(html_code, height=900, scrolling=True)
 
-# --- Ficha editable ---
-with st.form("editar_empleado"):
-    col1, col2 = st.columns(2)
-    nombre = col1.text_input("Nombre Completo", value=datos.get("NOMBRE COMPLETO", ""))
-    cedula = col2.text_input("Cédula", value=datos.get("CEDULA", ""))
-    cargo_edit = col1.text_input("Cargo", value=datos.get("CARGO", ""))
-    area = col2.text_input("Área", value=datos.get("AREA", ""))
-    departamento = col1.text_input("Departamento", value=datos.get("DEPARTAMENTO", ""))
-    sede = col2.text_input("Sede", value=datos.get("SEDE", ""))
-    jefe = col1.text_input("Jefe Inmediato", value=datos.get("JEFE INMEDIATO", ""))
-    correo = col2.text_input("Correo", value=datos.get("CORREO", ""))
-    celular = col1.text_input("Celular", value=datos.get("CELULAR", ""))
-    centro_trabajo = col2.text_input("Centro de Trabajo", value=datos.get("CENTRO TRABAJO", ""))
-    # Agrega más campos según tu base de datos...
-    actualizar = st.form_submit_button("Actualizar datos")
-    if actualizar:
-        ok = actualizar_empleado_google_sheets(
-            nombre, cedula, cargo_edit, area, departamento, sede, jefe, correo, celular, centro_trabajo
+with tab1:
+    st.subheader("🌳 Organigrama Visual Interactivo")
+    df_org = preparar_df_organigrama(df)
+    render_organigrama(df_org)
+
+with tab2:
+    col1, col2, col3, col4 = st.columns(4)
+    filtro_area = col1.selectbox("Filtrar por área", ["Todas"] + areas)
+    filtro_sede = col2.selectbox("Filtrar por sede", ["Todas"] + sedes)
+    filtro_dep = col3.selectbox("Filtrar por departamento", ["Todos"] + departamentos)
+    filtro_cargo = col4.selectbox("Filtrar por cargo", ["Todos"] + cargos)
+
+    df_filtrado = df.copy()
+    if filtro_area != "Todas" and 'AREA' in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado['AREA'] == filtro_area]
+    if filtro_sede != "Todas" and 'SEDE' in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado['SEDE'] == filtro_sede]
+    if filtro_dep != "Todos" and 'DEPARTAMENTO' in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado['DEPARTAMENTO'] == filtro_dep]
+    if filtro_cargo != "Todos" and 'CARGO' in df_filtrado.columns:
+        df_filtrado = df_filtrado[df_filtrado['CARGO'] == filtro_cargo]
+
+    empleado = st.selectbox("Seleccionar empleado", df_filtrado['NOMBRE COMPLETO'].unique())
+    datos = df_filtrado[df_filtrado['NOMBRE COMPLETO'] == empleado].iloc[0]
+    cargo = datos.get("CARGO", "")
+    manuals_folder_id = get_or_create_manuals_folder()
+
+    st.markdown(f"""
+    <div style='background:#f8f9fa;border-radius:24px;padding:40px;box-shadow:0 4px 24px #eee;max-width:900px;margin:auto;'>
+      <div style='display:flex;align-items:center;gap:32px;'>
+        <div style='font-size:5em;color:#0056b3;'>👤</div>
+        <div>
+          <h1 style='color:#003d6e;margin-bottom:0;'>{empleado}</h1>
+          <div style='font-size:1.5em;color:#0056b3;font-weight:bold;'>{cargo}</div>
+          <div style='margin-top:12px;'>
+            <span style='background:#e6f7ff;color:#0056b3;padding:6px 16px;border-radius:12px;margin-right:12px;'>Sede: {datos.get('SEDE','--')}</span>
+            <span style='background:#fffbe6;color:#856404;padding:6px 16px;border-radius:12px;'>Departamento: {datos.get('DEPARTAMENTO','--')}</span>
+          </div>
+        </div>
+      </div>
+      <hr style='margin:32px 0;'>
+    """, unsafe_allow_html=True)
+
+    # --- Ficha editable ---
+    with st.form("editar_empleado"):
+        col1, col2 = st.columns(2)
+        nombre = col1.text_input("Nombre Completo", value=datos.get("NOMBRE COMPLETO", ""))
+        cedula = col2.text_input("Cédula", value=datos.get("CEDULA", ""))
+        cargo_edit = col1.text_input("Cargo", value=datos.get("CARGO", ""))
+        area = col2.text_input("Área", value=datos.get("AREA", ""))
+        departamento = col1.text_input("Departamento", value=datos.get("DEPARTAMENTO", ""))
+        sede = col2.text_input("Sede", value=datos.get("SEDE", ""))
+        jefe = col1.text_input("Jefe Inmediato", value=datos.get("JEFE INMEDIATO", ""))
+        correo = col2.text_input("Correo", value=datos.get("CORREO", ""))
+        celular = col1.text_input("Celular", value=datos.get("CELULAR", ""))
+        centro_trabajo = col2.text_input("Centro de Trabajo", value=datos.get("CENTRO TRABAJO", ""))
+        actualizar = st.form_submit_button("Actualizar datos")
+        if actualizar:
+            ok = actualizar_empleado_google_sheets(
+                nombre, cedula, cargo_edit, area, departamento, sede, jefe, correo, celular, centro_trabajo
+            )
+            if ok:
+                st.success("Datos actualizados correctamente en Google Sheets.")
+                st.experimental_rerun()
+            else:
+                st.error("No se encontró el empleado para actualizar. Verifica nombre y cédula.")
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # --- Manual de funciones ---
+    st.markdown("### 📄 Manual de Funciones")
+    manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
+    if manual_file_id:
+        pdf_bytes = download_manual_from_drive(manual_file_id)
+        st.download_button(
+            label="📥 Descargar Manual PDF",
+            data=pdf_bytes,
+            file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
+            mime="application/pdf"
         )
-        if ok:
-            st.success("Datos actualizados correctamente en Google Sheets.")
-            st.experimental_rerun()  # <-- Esto recarga toda la app y actualiza los datos en pantalla
-        else:
-            st.error("No se encontró el empleado para actualizar. Verifica nombre y cédula.")
+    else:
+        st.warning("Sin manual de funciones. Puedes generarlo desde Gestión Inteligente.")
 
-st.markdown("<hr>", unsafe_allow_html=True)
-
-# --- Manual de funciones ---
-st.markdown("### 📄 Manual de Funciones")
-manual_file_id = find_manual_in_drive(cargo, manuals_folder_id)
-if manual_file_id:
-    pdf_bytes = download_manual_from_drive(manual_file_id)
-    st.download_button(
-        label="📥 Descargar Manual PDF",
-        data=pdf_bytes,
-        file_name=f"Manual_{cargo.replace(' ', '_').upper()}.pdf",
-        mime="application/pdf"
-    )
-else:
-    st.warning("Sin manual de funciones. Puedes generarlo desde Gestión Inteligente.")
-
-st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def actualizar_empleado_google_sheets(nombre, cedula, cargo, area, departamento, sede, jefe, correo, celular, centro_trabajo):
     from modules.database import connect_to_drive, SPREADSHEET_ID
