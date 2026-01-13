@@ -25,7 +25,7 @@ def generate_role_profile(cargo, company_context, force=False):
     prompt = f"""
     Eres consultor senior en Recursos Humanos, experto en Normas ISO, gestión de talento, análisis organizacional y transformación digital en empresas de telecomunicaciones como SERVINET.
     CONTEXTO DE LA EMPRESA (Manuales, cultura, procesos, informes, estructura, diagnósticos, etc.):
-    {company_context[:20000]}
+    {company_context[:10000]}
     TAREA:
     Redacta un manual de funciones empresarial, profesional y EXTREMADAMENTE COMPLETO para el cargo: "{cargo}".
     El resultado debe ser HTML limpio, visualmente atractivo y corporativo, usando colores azul, gris y amarillo, tablas, listas, iconos y títulos claros.
@@ -50,7 +50,7 @@ def generate_role_profile(cargo, company_context, force=False):
     - No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
     - Si tienes datos de la empresa, personaliza el manual con ejemplos reales, cifras, y recomendaciones específicas para SERVINET.
     - Sé exhaustivo, analítico y profesional. El manual debe servir para onboarding, auditoría, capacitación y gestión estratégica.
-    NO omitas ninguna sección. Si no tienes información suficiente, escribe "No aplica" o "Sin información".
+    NO omitas ninguna sección. Si no tienes información suficiente, crea algo corto pero empresarial dependiendo del cargo.
     """
 
     try:
