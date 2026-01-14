@@ -388,21 +388,21 @@ with tab1:
                 {
                     "type": "tree",
                     "data": [tree_data],
-                    "left": '5%',
-                    "right": '5%',
-                    "top": '30px',      # Antes: '100px'
-                    "bottom": '30px',   # Antes: '100px'
+                    "left": '1%',           # Antes: '5%'
+                    "right": '1%',          # Antes: '5%'
+                    "top": '5px',           # Antes: '30px'
+                    "bottom": '5px',        # Antes: '30px'
                     "orient": 'TB',
                     "layout": 'orthogonal',
                     "symbol": 'rect',
-                    "symbolSize": [120, 48],  # Antes: [160, 60]
+                    "symbolSize": [260, 70],  # Antes: [120, 48] (¡mucho más grande!)
                     "roam": True,
-                    "initialTreeDepth": 1,    # Antes: 2
+                    "initialTreeDepth": 2,    # Un poco más expandido
                     "expandAndCollapse": True,
                     "edgeShape": "polyline",
-                    "edgeForkPosition": "60%",
+                    "edgeForkPosition": "50%",  # Más compacto
                     "lineStyle": {
-                        "color": "#3b82f6",  # Azul corporativo
+                        "color": "#3b82f6",
                         "width": 2,
                         "curveness": 0
                     },
@@ -410,28 +410,28 @@ with tab1:
                         "show": True,
                         "position": 'inside',
                         "color": '#1e293b',
-                        "fontSize": 11,
+                        "fontSize": 16,  # Más grande
                         "rich": {
-                            "title": {"color": "#003d6e", "fontSize": 13, "fontWeight": "bold", "align": "center", "lineHeight": 16, "padding": [0, 5, 0, 5]},
+                            "title": {"color": "#003d6e", "fontSize": 18, "fontWeight": "bold", "align": "center", "lineHeight": 22, "padding": [0, 5, 0, 5]},
                             "hr": {"borderColor": "#cbd5e1", "width": "100%", "borderWidth": 0.5, "height": 0, "margin": [5, 0, 5, 0]},
-                            "subtitle": {"color": "#475569", "fontSize": 10, "align": "center", "lineHeight": 12, "padding": [2, 0, 0, 0]}
+                            "subtitle": {"color": "#475569", "fontSize": 13, "align": "center", "lineHeight": 14, "padding": [2, 0, 0, 0]}
                         }
                     },
                     "itemStyle": {
                         "color": "#f8fafc",
                         "borderColor": "#3b82f6",
                         "borderWidth": 2,
-                        "borderRadius": 8,
-                        "shadowBlur": 8,
-                        "shadowColor": "rgba(59,130,246,0.08)"
+                        "borderRadius": 14,  # Más redondeado
+                        "shadowBlur": 12,
+                        "shadowColor": "rgba(59,130,246,0.10)"
                     },
-                    "animationDuration": 450,
-                    "animationDurationUpdate": 650
+                    "animationDuration": 350,
+                    "animationDurationUpdate": 450
                 }
             ]
         }
         
-        st_echarts(options=option, height="1200px")
+        st_echarts(options=option, height="900px")  # Menor altura, más compacto
 
     except Exception as e:
         st.error(f"Error crítico al generar organigrama por cargos: {e}")
@@ -523,23 +523,23 @@ with tab2:
             
             # Sección de Manuales
             st.write(" ")
-            st.markdown("##### 📄 Documentación Asociada")
-            
-            with st.spinner("Buscando manuales..."):
+            st.markdown("##### 📄 Manual de Funciones")
+
+            with st.spinner("Buscando manual de funciones..."):
                 manuals_folder_id = get_or_create_manuals_folder()
-                organigrama_file_id = find_organigrama_in_drive(manuals_folder_id)
-            
-            if organigrama_file_id:
-                pdf_bytes = download_organigrama_from_drive(organigrama_file_id)
+                manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
+
+            if manual_file_id:
+                pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button(
-                    label="📥 Descargar Organigrama PDF",
+                    label="📥 Descargar Manual de Funciones PDF",
                     data=pdf_bytes,
-                    file_name="Organigrama_Cargos.pdf",
+                    file_name=f"Manual_{datos.get('CARGO', '').replace(' ', '_').upper()}.pdf",
                     mime="application/pdf"
                 )
-                st.info("Mostrando organigrama guardado. Si deseas actualizarlo, genera uno nuevo.")
+                st.info("Manual de funciones disponible.")
             else:
-                st.warning("No hay organigrama guardado. Genera uno para almacenarlo en Drive.")
+                st.warning("No hay manual de funciones guardado para este cargo.")
 
         # COLUMNA DERECHA: FORMULARIO DE EDICIÓN
         with col_card_der:
