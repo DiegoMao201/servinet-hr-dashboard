@@ -402,7 +402,7 @@ with tab1:
                     "initialTreeDepth": 2,    # Un poco más expandido
                     "expandAndCollapse": True,
                     "edgeShape": "polyline",
-                    "edgeForkPosition": "50%"  # Más compacto
+                    "edgeForkPosition": "50%",  # Más compacto
                     "lineStyle": {
                         "color": "#3b82f6",
                         "width": 2,
