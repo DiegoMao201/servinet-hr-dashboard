@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import textwrap
+from collections import Counter
 from streamlit_echarts import st_echarts 
 
 # --- IMPORTACIÓN DE MÓDULOS LOCALES ---
@@ -54,6 +55,12 @@ st.markdown("""
         padding: 20px;
         border-radius: 10px;
         border: 1px solid #e2e8f0;
+    }
+    
+    /* Estilo para el tooltip de lista de empleados */
+    .echarts-tooltip {
+        max-height: 400px;
+        overflow-y: auto;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -119,7 +126,8 @@ if 'JEFE_DIRECTO' in df_org_base.columns:
 elif 'JEFE INMEDIATO' in df_org_base.columns:
     df_org_base['JEFE_DIRECTO'] = df_org_base['JEFE INMEDIATO'].fillna("").astype(str).str.strip()
 
-# 3. ALGORITMO ANTI-BUCLES (Ciclos Infinitos)
+# 3. ALGORITMO ANTI-BUCLES (Ciclos Infinitos en Personas)
+# Esto es necesario para la edición en el Tab 2, aunque el Tab 1 use cargos.
 employees_dict = dict(zip(df_org_base['NOMBRE COMPLETO'], df_org_base['JEFE_DIRECTO']))
 ciclos_detectados = []
 
@@ -146,7 +154,7 @@ def detect_and_break_cycles(df_input):
 
     if links_to_break:
         unique_breaks = list(set(links_to_break))
-        st.warning(f"⚠️ **Alerta:** Se rompieron vínculos cíclicos para visualizar: {', '.join(unique_breaks)}")
+        st.warning(f"⚠️ **Alerta:** Se rompieron vínculos cíclicos de personas para visualizar: {', '.join(unique_breaks)}")
         for name in unique_breaks:
             df_clean.loc[df_clean['NOMBRE COMPLETO'] == name, 'JEFE_DIRECTO'] = ""
             
@@ -160,59 +168,116 @@ sedes = sorted(df['SEDE'].dropna().unique()) if 'SEDE' in df.columns else []
 departamentos = sorted(df['DEPARTAMENTO'].dropna().unique()) if 'DEPARTAMENTO' in df.columns else []
 cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 
+# --- PREPARACIÓN DE DATOS AGRUPADOS POR CARGO (Para Tab 1) ---
+# Necesitamos saber qué cargo reporta a qué cargo.
+# 1. Mapa: Persona -> Cargo
+mapa_persona_cargo = dict(zip(df_org_final['NOMBRE COMPLETO'], df_org_final['CARGO']))
+
+# 2. Agregar columna "Cargo del Jefe" a cada empleado
+df_org_final['JEFE_CARGO_REAL'] = df_org_final['JEFE_DIRECTO'].map(mapa_persona_cargo).fillna("")
+
+# 3. Agrupar por CARGO
+# Estructura deseada: DataFrame donde el índice es el CARGO y tenemos una lista de empleados y el jefe (cargo) más común.
+df_cargos_group = df_org_final.groupby('CARGO').agg({
+    'NOMBRE COMPLETO': list,
+    'CORREO': list,
+    'CELULAR': list,
+    'DEPARTAMENTO': 'first', # Asumimos que un cargo pertenece a un departamento principal
+    'AREA': 'first',
+    'JEFE_CARGO_REAL': lambda x: Counter(x).most_common(1)[0][0] if len(x) > 0 else "" # Moda: El jefe más común
+}).reset_index()
+
+# 4. Anti-bucles para CARGOS (Porque Gerente puede reportar a Director y Director a Gerente por error)
+def break_role_cycles(df_roles):
+    df_clean = df_roles.copy()
+    adj_list = dict(zip(df_clean['CARGO'], df_clean['JEFE_CARGO_REAL']))
+    links_to_break = []
+
+    def visit(node, path):
+        if node in path:
+            links_to_break.append(node)
+            return
+        # Si el jefe es el mismo cargo (auto-referencia), romperlo a menos que sea el único
+        if node in adj_list and adj_list[node] == node:
+             links_to_break.append(node)
+             return
+        if node not in adj_list or not adj_list[node]:
+            return
+        path.add(node)
+        visit(adj_list[node], path)
+        path.remove(node)
+
+    for role in df_clean['CARGO']:
+        visit(role, set())
+
+    if links_to_break:
+        unique = list(set(links_to_break))
+        # st.warning(f"Ciclos de Cargos rotos: {unique}") # Debug opcional
+        for role in unique:
+             df_clean.loc[df_clean['CARGO'] == role, 'JEFE_CARGO_REAL'] = ""
+    return df_clean
+
+df_cargos_final = break_role_cycles(df_cargos_group)
+
+
 # --- TABS ---
-tab1, tab2 = st.tabs(["🌳 Organigrama Interactivo", "👤 Ficha Técnica & Edición"])
+tab1, tab2 = st.tabs(["🌳 Organigrama por Cargos", "👤 Ficha Técnica & Edición"])
 
 # ==============================================================================
-# TAB 1: ORGANIGRAMA MEJORADO (VERSIÓN PRO)
+# TAB 1: ORGANIGRAMA AGRUPADO POR CARGOS (SOLICITUD USUARIO)
 # ==============================================================================
 with tab1:
-    st.markdown("### 🔹 Mapa Estructural Corporativo")
-    st.info("💡 **Tip:** Usa la rueda del mouse para Zoom. Arrastra para moverte. Haz clic en las flechas para expandir/contraer ramas.")
+    st.markdown("### 🔹 Mapa Estructural por Cargos")
+    st.info("💡 **Interacción:** El organigrama muestra **CARGOS**. Haz clic o pasa el mouse sobre un cargo para ver la lista de **TODOS** los empleados que lo ocupan.")
 
-    # 4. Construcción del JSON Jerárquico Robusto
-    def build_hierarchy_json_v2(df_in):
-        df_in = df_in.fillna("")
-        
-        # Diccionarios de referencia
-        nombre_to_id = {row['NOMBRE COMPLETO']: str(row['CEDULA']).strip() for _, row in df_in.iterrows()}
-        
+    def build_hierarchy_by_role_json(df_in):
+        # Crear Nodos
         nodes = {}
         
-        # Crear Nodos con Estilo Mejorado
+        # Diccionario para buscar ID de Cargo padre
+        # Usaremos el nombre del cargo como ID ya que es único tras el groupby
+        
         for _, row in df_in.iterrows():
-            emp_id = str(row['CEDULA']).strip()
-            nombre_actual = row['NOMBRE COMPLETO']
+            cargo_id = row['CARGO'] # ID único es el nombre del cargo
+            parent_id = row['JEFE_CARGO_REAL']
             
-            # Buscar ID del Jefe
-            jefe_nombre = row['JEFE_DIRECTO']
-            parent_id = nombre_to_id.get(jefe_nombre, None)
+            # Si el parent es vacío o es el mismo cargo, es raíz (o error de ciclo ya limpiado)
+            if parent_id == "" or parent_id == cargo_id:
+                parent_id = None
             
-            # Formateo visual estricto para que quepa en la tarjeta fija
-            nombre_display = wrap_text_node(nombre_actual, width=18)
-            cargo_display = wrap_text_node(row['CARGO'], width=22)
+            # Datos visuales del nodo (Solo mostramos el Cargo y conteo)
+            count_emp = len(row['NOMBRE COMPLETO'])
+            cargo_display = wrap_text_node(cargo_id, width=18)
             
-            # Label con Rich Text de Echarts (Estilo CSS interno)
-            # {title|...} es el nombre, {subtitle|...} es el cargo
-            formatted_label = f"{{title|{nombre_display}}}\n{{hr|}}\n{{subtitle|{cargo_display}}}"
+            # Etiqueta visual
+            formatted_label = f"{{title|{cargo_display}}}\n{{hr|}}\n{{subtitle|{count_emp} Personas}}"
             
             depto = row.get('DEPARTAMENTO', 'OTROS')
             bg_color = color_por_departamento(depto)
             
-            nodes[emp_id] = {
+            # Preparar lista de empleados para el tooltip
+            lista_empleados = []
+            nombres = row['NOMBRE COMPLETO']
+            correos = row['CORREO']
+            celulares = row['CELULAR']
+            
+            for i in range(len(nombres)):
+                lista_empleados.append({
+                    "nombre": nombres[i],
+                    "correo": correos[i] if i < len(correos) else "",
+                    "celular": celulares[i] if i < len(celulares) else ""
+                })
+
+            nodes[cargo_id] = {
                 "name": formatted_label,
-                "value": row['CARGO'],
+                "value": count_emp, # Valor numérico para lógica interna
                 "children": [],
                 "tooltip_info": {
-                    "nombre_real": nombre_actual,
-                    "area": row.get('AREA', 'N/A'),
-                    "sede": row.get('SEDE', 'N/A'),
-                    "departamento": row.get('DEPARTAMENTO', 'N/A'),
-                    "tipo": row.get('PLANTA - COOPERATIVA', ''),
-                    "email": row.get('CORREO', ''),
-                    "celular": row.get('CELULAR', '')
+                    "cargo": cargo_id,
+                    "departamento": depto,
+                    "area": row.get('AREA', ''),
+                    "empleados": lista_empleados
                 },
-                # Estilo Específico del Nodo
                 "itemStyle": {
                     "color": bg_color,
                     "borderColor": "#94a3b8",
@@ -221,58 +286,75 @@ with tab1:
                     "shadowBlur": 5,
                     "shadowColor": "rgba(0,0,0,0.1)"
                 },
-                "_id": emp_id,
+                "_id": cargo_id,
                 "_parent_id": parent_id
             }
 
-        # Armar el árbol
+        # Armar el árbol recorriendo nodos y asignando hijos
         forest = []
-        for emp_id, node in nodes.items():
-            parent_id = node.pop("_parent_id")
-            if parent_id == emp_id: parent_id = None # Evitar auto-referencia simple
-
+        # Es necesario procesar los nodos que tienen padres existentes
+        for cargo_id, node in nodes.items():
+            parent_id = node.get("_parent_id")
+            
             if parent_id and parent_id in nodes:
                 nodes[parent_id]["children"].append(node)
             else:
                 forest.append(node)
         
-        # Manejo de Raíces Múltiples (Crear un nodo ficticio "Junta Directiva" o similar si hay varios jefes supremos)
+        # Manejo de Raíces Múltiples
         if len(forest) == 1:
             return forest[0]
         else:
             return {
                 "name": "{title|DIRECCIÓN GENERAL}\n{hr|}\n{subtitle|ESTRUCTURA}",
                 "children": forest,
-                "tooltip_info": {"nombre_real": "Agrupador", "area": "-", "sede": "-", "email": "", "celular": ""},
+                "tooltip_info": {"cargo": "Agrupador Raíz", "departamento": "-", "empleados": []},
                 "itemStyle": {"color": "#1e293b", "borderColor": "#0f172a"},
                 "label": {"color": "white"}
             }
 
     try:
-        tree_data = build_hierarchy_json_v2(df_org_final)
+        tree_data = build_hierarchy_by_role_json(df_cargos_final)
         
         # --- CONFIGURACIÓN ECHARTS PROFESIONAL ---
         option = {
             "tooltip": {
                 "trigger": 'item',
-                "triggerOn": 'mousemove',
-                "enterable": True,
+                "triggerOn": 'mousemove|click', # Funciona con clic o mouse
+                "enterable": True, # Permite entrar al tooltip para scrollear
                 "formatter": """
     function(params) {
         var info = params.data.tooltip_info;
         if (!info) return '';
-        let html = `<div style="font-family: sans-serif; min-width: 220px; padding: 10px; border-radius: 4px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-            <h4 style="margin:0 0 5px 0; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${info.nombre_real}</h4>
-            <div style="font-size: 12px; color: #333; line-height: 1.5;">
-                <b>Cargo:</b> ${params.value || ''}<br>
-                <b>Área:</b> ${info.area || ''}<br>
-                <b>Sede:</b> ${info.sede || ''}<br>
-                <b>Departamento:</b> ${info.departamento || ''}<br>
-                <b>Tipo:</b> ${info.tipo || ''}<br>
-                <b>Email:</b> ${info.email || ''}<br>
-                <b>Celular:</b> ${info.celular || ''}<br>
+        
+        // Encabezado del Tooltip
+        let html = `<div style="font-family: sans-serif; min-width: 250px; max-height: 300px; overflow-y: auto; padding: 10px; border-radius: 4px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+            <h4 style="margin:0 0 5px 0; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${info.cargo}</h4>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                <b>Depto:</b> ${info.departamento} | <b>Total:</b> ${info.empleados.length}
             </div>
-        </div>`;
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <tr style="background: #f1f5f9; text-align: left;">
+                    <th style="padding: 4px;">Empleado</th>
+                    <th style="padding: 4px;">Contacto</th>
+                </tr>`;
+        
+        // Iterar sobre los empleados del cargo
+        info.empleados.forEach(function(emp) {
+            html += `
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 6px 4px; color: #334155;">
+                        <b>${emp.nombre}</b>
+                    </td>
+                    <td style="padding: 6px 4px; color: #64748b;">
+                        ${emp.celular}<br>
+                        <span style="font-size: 10px; color: #94a3b8;">${emp.correo}</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `</table></div>`;
         return html;
     }
                 """
@@ -288,9 +370,9 @@ with tab1:
                     "orient": 'TB',
                     "layout": 'orthogonal',
                     "symbol": 'rect',
-                    "symbolSize": [160, 60],  # Más compacto
+                    "symbolSize": [160, 60],
                     "roam": True,
-                    "initialTreeDepth": 1,  # Solo gerente y directivos al inicio
+                    "initialTreeDepth": 2, 
                     "expandAndCollapse": True,
                     "edgeShape": "polyline",
                     "edgeForkPosition": "60%",
@@ -317,15 +399,21 @@ with tab1:
             ]
         }
         
-        # RENDERIZADO CON ALTURA AUMENTADA PARA EVITAR SOLAPAMIENTO
-        st_echarts(options=option, height="1200px") # Altura fija grande
+        st_echarts(options=option, height="1200px")
 
     except Exception as e:
-        st.error(f"Error crítico al generar organigrama: {e}")
+        st.error(f"Error crítico al generar organigrama por cargos: {e}")
 
-    # Leyenda Estática
+    # Leyenda Estática (Reutilizando el diccionario de colores global que definiremos abajo o arriba)
+    leyenda_colores = {
+        "ADMINISTRATIVO": "#fef9c3", "OPERATIVO": "#dcfce7", "FINANZAS": "#fee2e2",
+        "COMERCIAL": "#dbeafe", "RRHH": "#fce7f3", "TECNOLOGÍA": "#f3e8ff",
+        "LOGÍSTICA": "#d1fae5", "DIRECCIÓN": "#fef08a", "JURÍDICO": "#fbcfe8",
+        "MARKETING": "#ffedd5", "OTROS": "#f1f5f9"
+    }
+    
     st.markdown("---")
-    st.markdown("#### 🎨 Departamentos")
+    st.markdown("#### 🎨 Departamentos (Cargos Agrupados)")
     for dept, color in leyenda_colores.items():
         st.markdown(
             f"<span style='display:inline-block;width:18px;height:18px;background:{color};border-radius:4px;margin-right:6px;'></span> {dept}",
@@ -333,7 +421,7 @@ with tab1:
         )
 
 # ==============================================================================
-# TAB 2: FICHA DE EMPLEADO & EDICIÓN (MANTENIDO IGUAL PERO ROBUSTO)
+# TAB 2: FICHA DE EMPLEADO & EDICIÓN (SIN CAMBIOS, NECESARIO PARA FUNCIONALIDAD)
 # ==============================================================================
 with tab2:
     def actualizar_empleado_google_sheets(nombre, cedula, cargo, area, departamento, sede, jefe, correo, celular, centro_trabajo):
@@ -504,20 +592,27 @@ Incluye una visión estratégica, fortalezas y oportunidades de mejora.
     return response.choices[0].message.content.strip()
 
 # --- Construye la lista de cargos_info ---
+# Reutilizamos df_cargos_final para optimizar, pero mantenemos estructura original para el PDF
 cargos_info = []
-for cargo, grupo in df_org_final.groupby('CARGO'):
-    departamento = grupo['DEPARTAMENTO'].iloc[0] if 'DEPARTAMENTO' in grupo.columns else "OTROS"
-    empleados = list(grupo['NOMBRE COMPLETO'])
+for idx, row in df_cargos_final.iterrows():
+    cargo = row['CARGO']
+    departamento = row['DEPARTAMENTO']
+    empleados = row['NOMBRE COMPLETO']
+    
     # Descripción por IA para cada cargo
     prompt_cargo = f"Describe brevemente el cargo '{cargo}' en el departamento '{departamento}' para una empresa de telecomunicaciones."
     desc_cargo = ""
     if openai_client:
-        resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt_cargo}],
-            temperature=0.2
-        )
-        desc_cargo = resp.choices[0].message.content.strip()
+        try:
+            resp = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt_cargo}],
+                temperature=0.2
+            )
+            desc_cargo = resp.choices[0].message.content.strip()
+        except:
+            desc_cargo = "Sin descripción IA."
+
     cargos_info.append({
         "cargo": cargo,
         "departamento": departamento,
@@ -526,22 +621,13 @@ for cargo, grupo in df_org_final.groupby('CARGO'):
     })
 
 # --- Descripción general del organigrama ---
-descripcion_general = generar_descripcion_general_organigrama(cargos_info)
-
-# --- Leyenda de colores ---
-leyenda_colores = {
-    "ADMINISTRATIVO": "#fef9c3",
-    "OPERATIVO": "#dcfce7",
-    "FINANZAS": "#fee2e2",
-    "COMERCIAL": "#dbeafe",
-    "RRHH": "#fce7f3",
-    "TECNOLOGÍA": "#f3e8ff",
-    "LOGÍSTICA": "#d1fae5",
-    "DIRECCIÓN": "#fef08a",
-    "JURÍDICO": "#fbcfe8",
-    "MARKETING": "#ffedd5",
-    "OTROS": "#f1f5f9"
-}
+# Solo llamamos a la IA si hay cliente
+descripcion_general = ""
+if openai_client:
+    try:
+        descripcion_general = generar_descripcion_general_organigrama(cargos_info)
+    except:
+        descripcion_general = "No se pudo generar descripción."
 
 # --- Botón para exportar PDF ---
 if st.button("📄 Exportar Organigrama por Cargos a PDF"):
