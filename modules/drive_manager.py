@@ -117,3 +117,40 @@ def get_or_create_manuals_folder():
     file_metadata = {'name': 'MANUAL_FUNCIONES', 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_id]}
     folder = service.files().create(body=file_metadata, fields='id').execute()
     return folder.get('id')
+
+def upload_organigrama_to_drive(file_path, folder_id):
+    """Sube el PDF del organigrama a Drive."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    file_metadata = {
+        'name': 'Organigrama_Cargos.pdf',
+        'parents': [folder_id]
+    }
+    media = MediaFileUpload(file_path, mimetype='application/pdf')
+    # Borra versiones anteriores
+    query = f"'{folder_id}' in parents and name='Organigrama_Cargos.pdf' and trashed=false"
+    results = service.files().list(q=query, fields="files(id)").execute()
+    for f in results.get('files', []):
+        service.files().delete(fileId=f['id']).execute()
+    file = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id',
+        supportsAllDrives=True
+    ).execute()
+    return file.get('id')
+
+def find_organigrama_in_drive(folder_id):
+    """Busca el PDF del organigrama en Drive."""
+    creds = get_creds()
+    service = build('drive', 'v3', credentials=creds)
+    query = f"'{folder_id}' in parents and name='Organigrama_Cargos.pdf' and trashed=false"
+    results = service.files().list(q=query, fields="files(id)").execute()
+    files = results.get('files', [])
+    if files:
+        return files[0]['id']
+    return None
+
+def download_organigrama_from_drive(file_id):
+    """Descarga el PDF del organigrama desde Drive."""
+    return download_manual_from_drive(file_id)

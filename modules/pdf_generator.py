@@ -81,63 +81,71 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
     """
     template_html = """
     <!doctype html>
-    <html lang="es">
+    <html lang=\"es\">
     <head>
-      <meta charset="UTF-8">
-      <title>Organigrama por Cargos</title>
+      <meta charset=\"UTF-8\">
+      <title>Organigrama Corporativo por Cargos</title>
       <style>
+        @page { size: A4; margin: 25mm 20mm 25mm 20mm; }
         body { font-family: 'Inter', Arial, sans-serif; color: #222; background: #fff; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .title { font-size: 2.2em; color: #003d6e; font-weight: bold; margin-bottom: 10px; }
-        .subtitle { font-size: 1.1em; color: #00a8e1; margin-bottom: 20px; }
-        .leyenda { margin-bottom: 20px; }
-        .leyenda span { display: inline-block; width: 18px; height: 18px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
-        .descripcion { background: #e6f7ff; border-left: 4px solid #00a8e1; padding: 10px; margin-bottom: 25px; font-size: 1.1em; }
-        .cargo-card { border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 28px; padding: 22px; background: #f8fafc; }
-        .cargo-title { font-size: 1.5em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
-        .cargo-depto { font-size: 1em; font-weight: bold; padding: 3px 12px; border-radius: 10px; margin-bottom: 8px; display: inline-block; }
-        .cargo-desc { font-size: 1.08em; color: #475569; margin-bottom: 12px; }
-        .cargo-empleados { font-size: 1.05em; color: #222; margin-bottom: 4px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .logo { height: 80px; margin-bottom: 10px; }
+        .title { font-size: 2.5em; color: #003d6e; font-weight: bold; margin-bottom: 8px; }
+        .subtitle { font-size: 1.2em; color: #00a8e1; margin-bottom: 18px; }
+        .executive-summary { background: #f0f2f6; border-left: 5px solid #003d6e; padding: 18px; margin-bottom: 30px; font-size: 1.1em; }
+        .cargo-grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: flex-start; }
+        .cargo-card {
+          flex: 1 1 320px;
+          min-width: 320px;
+          max-width: 370px;
+          background: #fff;
+          border-radius: 14px;
+          border: 1.5px solid #e2e8f0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          padding: 22px 18px 18px 18px;
+          margin-bottom: 18px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        }
+        .cargo-title { font-size: 1.3em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
+        .cargo-depto { font-size: 1em; font-weight: 600; color: #00a8e1; margin-bottom: 8px; }
+        .cargo-desc { font-size: 1.05em; color: #475569; margin-bottom: 10px; }
+        .cargo-empleados { font-size: 1em; color: #222; margin-bottom: 4px; }
         .cargo-empleados ul { margin: 0 0 0 18px; }
         .cargo-empleados li { margin-bottom: 2px; }
-        .divider { border-top: 2px solid #e2e8f0; margin: 18px 0 18px 0; }
         .footer { margin-top: 40px; text-align: right; font-size: 0.9em; color: #888; }
+        .page-break { page-break-after: always; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="title">Organigrama Corporativo por Cargos</div>
-        <div class="subtitle">SERVINET - RRHH</div>
+      <div class=\"header\">
+        <img src=\"https://i.imgur.com/9Qe5p7R.png\" class=\"logo\" alt=\"Logo Servinet\">
+        <div class=\"title\">Organigrama Corporativo por Cargos</div>
+        <div class=\"subtitle\">SERVINET - RRHH</div>
       </div>
-      <div class="leyenda">
-        <b>Leyenda de Departamentos:</b><br>
-        {% for dept, color in leyenda_colores.items() %}
-          <span style="background:{{ color }};"></span> {{ dept }} &nbsp;
-        {% endfor %}
-      </div>
-      <div class="descripcion">
-        <b>Descripción General:</b><br>
+      <div class=\"executive-summary\">
+        <b>Resumen Ejecutivo:</b><br>
         {{ descripcion_general }}
       </div>
-      {% for cargo in cargos_info %}
-        <div class="cargo-card">
-          <div class="cargo-title">{{ cargo.cargo }}</div>
-          <div class="cargo-depto" style="background:{{ leyenda_colores.get(cargo.departamento, '#f1f5f9') }};">
-            {{ cargo.departamento }}
+      <div class=\"cargo-grid\">
+        {% for cargo in cargos_info %}
+          <div class=\"cargo-card\">
+            <div class=\"cargo-title\">{{ cargo.cargo }}</div>
+            <div class=\"cargo-depto\">{{ cargo.departamento }}</div>
+            <div class=\"cargo-desc\">{{ cargo.descripcion }}</div>
+            <div class=\"cargo-empleados\">
+              <b>Empleados:</b>
+              <ul>
+                {% for emp in cargo.empleados %}
+                  <li>{{ emp }}</li>
+                {% endfor %}
+              </ul>
+            </div>
           </div>
-          <div class="cargo-desc"><b>Descripción del Cargo:</b><br>{{ cargo.descripcion }}</div>
-          <div class="cargo-empleados">
-            <b>Empleados en este cargo:</b>
-            <ul>
-              {% for emp in cargo.empleados %}
-                <li>👤 {{ emp }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-        <div class="divider"></div>
-      {% endfor %}
-      <div class="footer">
+        {% endfor %}
+      </div>
+      <div class=\"footer\">
         Documento generado automáticamente por IA y RRHH. SERVINET 2024.
       </div>
     </body>
@@ -148,7 +156,7 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
     html_content = template.render(
         cargos_info=cargos_info,
         descripcion_general=descripcion_general,
-        leyenda_colores=leyenda_colores
+        leyenda_colores=None
     )
     HTML(string=html_content).write_pdf(filename)
     return filename

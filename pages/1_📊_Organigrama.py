@@ -9,7 +9,12 @@ from streamlit_echarts import st_echarts
 # Asegúrate de que estos archivos existen en tu carpeta modules/
 try:
     from modules.database import get_employees, connect_to_drive, SPREADSHEET_ID
-    from modules.drive_manager import get_or_create_manuals_folder, find_manual_in_drive, download_manual_from_drive
+    from modules.drive_manager import (
+        get_or_create_manuals_folder,
+        upload_organigrama_to_drive,
+        find_organigrama_in_drive,
+        download_organigrama_from_drive,
+    )
     from modules.ai_brain import client as openai_client
     from modules.pdf_generator import export_organigrama_pdf
 except ImportError as e:
@@ -385,19 +390,19 @@ with tab1:
                     "data": [tree_data],
                     "left": '5%',
                     "right": '5%',
-                    "top": '100px',
-                    "bottom": '100px',
+                    "top": '30px',      # Antes: '100px'
+                    "bottom": '30px',   # Antes: '100px'
                     "orient": 'TB',
                     "layout": 'orthogonal',
                     "symbol": 'rect',
-                    "symbolSize": [160, 60],
+                    "symbolSize": [120, 48],  # Antes: [160, 60]
                     "roam": True,
-                    "initialTreeDepth": 2, 
+                    "initialTreeDepth": 1,    # Antes: 2
                     "expandAndCollapse": True,
                     "edgeShape": "polyline",
                     "edgeForkPosition": "60%",
                     "lineStyle": {
-                        "color": "#64748b",
+                        "color": "#3b82f6",  # Azul corporativo
                         "width": 2,
                         "curveness": 0
                     },
@@ -405,16 +410,23 @@ with tab1:
                         "show": True,
                         "position": 'inside',
                         "color": '#1e293b',
-                        "fontSize": 10,
+                        "fontSize": 11,
                         "rich": {
-                            "title": {"color": "#0f172a", "fontSize": 12, "fontWeight": "bold", "align": "center", "lineHeight": 14, "padding": [0, 5, 0, 5]},
+                            "title": {"color": "#003d6e", "fontSize": 13, "fontWeight": "bold", "align": "center", "lineHeight": 16, "padding": [0, 5, 0, 5]},
                             "hr": {"borderColor": "#cbd5e1", "width": "100%", "borderWidth": 0.5, "height": 0, "margin": [5, 0, 5, 0]},
                             "subtitle": {"color": "#475569", "fontSize": 10, "align": "center", "lineHeight": 12, "padding": [2, 0, 0, 0]}
                         }
                     },
-                    "expandAndCollapse": True,
-                    "animationDuration": 550,
-                    "animationDurationUpdate": 750
+                    "itemStyle": {
+                        "color": "#f8fafc",
+                        "borderColor": "#3b82f6",
+                        "borderWidth": 2,
+                        "borderRadius": 8,
+                        "shadowBlur": 8,
+                        "shadowColor": "rgba(59,130,246,0.08)"
+                    },
+                    "animationDuration": 450,
+                    "animationDurationUpdate": 650
                 }
             ]
         }
@@ -424,21 +436,7 @@ with tab1:
     except Exception as e:
         st.error(f"Error crítico al generar organigrama por cargos: {e}")
 
-    # Leyenda Estática (Reutilizando el diccionario de colores global que definiremos abajo o arriba)
-    leyenda_colores = {
-        "ADMINISTRATIVO": "#fef9c3", "OPERATIVO": "#dcfce7", "FINANZAS": "#fee2e2",
-        "COMERCIAL": "#dbeafe", "RRHH": "#fce7f3", "TECNOLOGÍA": "#f3e8ff",
-        "LOGÍSTICA": "#d1fae5", "DIRECCIÓN": "#fef08a", "JURÍDICO": "#fbcfe8",
-        "MARKETING": "#ffedd5", "OTROS": "#f1f5f9"
-    }
-    
-    st.markdown("---")
-    st.markdown("#### 🎨 Departamentos (Cargos Agrupados)")
-    for dept, color in leyenda_colores.items():
-        st.markdown(
-            f"<span style='display:inline-block;width:18px;height:18px;background:{color};border-radius:4px;margin-right:6px;'></span> {dept}",
-            unsafe_allow_html=True
-        )
+    # Leyenda de colores eliminada para profesionalismo empresarial
 
 # ==============================================================================
 # TAB 2: FICHA DE EMPLEADO & EDICIÓN (SIN CAMBIOS, NECESARIO PARA FUNCIONALIDAD)
@@ -529,20 +527,19 @@ with tab2:
             
             with st.spinner("Buscando manuales..."):
                 manuals_folder_id = get_or_create_manuals_folder()
-                manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
+                organigrama_file_id = find_organigrama_in_drive(manuals_folder_id)
             
-            if manual_file_id:
-                pdf_bytes = download_manual_from_drive(manual_file_id)
-                if pdf_bytes:
-                    st.download_button(
-                        label="📥 Descargar Manual (PDF)",
-                        data=pdf_bytes,
-                        file_name=f"Manual_{datos.get('CARGO','').replace(' ','_')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+            if organigrama_file_id:
+                pdf_bytes = download_organigrama_from_drive(organigrama_file_id)
+                st.download_button(
+                    label="📥 Descargar Organigrama PDF",
+                    data=pdf_bytes,
+                    file_name="Organigrama_Cargos.pdf",
+                    mime="application/pdf"
+                )
+                st.info("Mostrando organigrama guardado. Si deseas actualizarlo, genera uno nuevo.")
             else:
-                st.info(f"No se encontró manual PDF para: '{datos.get('CARGO')}'")
+                st.warning("No hay organigrama guardado. Genera uno para almacenarlo en Drive.")
 
         # COLUMNA DERECHA: FORMULARIO DE EDICIÓN
         with col_card_der:
@@ -600,9 +597,9 @@ def generar_descripcion_general_organigrama(cargos_info):
     if not openai_client:
         return "Descripción no disponible (falta API KEY de OpenAI)."
     prompt = f"""
-Eres consultor senior en RRHH. Resume y describe el organigrama de la empresa SERVINET, basado en los siguientes cargos y departamentos:
+Eres consultor senior en RRHH. Resume y describe el organigrama de la empresa SERVINET, en un párrafo ejecutivo (máximo 7 líneas), resaltando estructura, fortalezas y oportunidades, basado en los siguientes cargos y departamentos:
 {[ (c['cargo'], c['departamento'], len(c['empleados'])) for c in cargos_info ]}
-Organiza la información con títulos claros, viñetas y una estructura profesional. Usa listas para los cargos y empleados, y resalta los puntos clave. Incluye una visión estratégica, fortalezas y oportunidades de mejora.
+Organiza la información con títulos claros, una estructura profesional. Usa listas para los cargos y empleados, y resalta los puntos clave. Incluye una visión estratégica, fortalezas y oportunidades de mejora.
 El resultado debe estar en formato Markdown o HTML simple, con títulos, subtítulos y listas ordenadas o con viñetas.
 """
     response = openai_client.chat.completions.create(
@@ -656,9 +653,11 @@ if st.button("📄 Exportar Organigrama por Cargos a PDF"):
         pdf_filename = export_organigrama_pdf(
             cargos_info=cargos_info,
             descripcion_general=descripcion_general,
-            leyenda_colores=leyenda_colores,
+            # leyenda_colores eliminado
             filename="Organigrama_Cargos.pdf"
         )
+        # Subir a Drive
+        upload_organigrama_to_drive(pdf_filename, manuals_folder_id)
         with open(pdf_filename, "rb") as f:
             st.download_button(
                 label="📥 Descargar PDF Organigrama",
@@ -666,4 +665,4 @@ if st.button("📄 Exportar Organigrama por Cargos a PDF"):
                 file_name=pdf_filename,
                 mime="application/pdf"
             )
-        st.success("PDF generado exitosamente.")
+        st.success("PDF generado y guardado en Drive exitosamente.")
