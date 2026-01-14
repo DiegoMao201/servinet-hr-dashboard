@@ -442,37 +442,47 @@ with tab1:
 # TAB 2: FICHA DE EMPLEADO & EDICIÓN (SIN CAMBIOS, NECESARIO PARA FUNCIONALIDAD)
 # ==============================================================================
 with tab2:
-    def actualizar_empleado_google_sheets(nombre, cedula, cargo, area, departamento, sede, jefe, correo, celular, centro_trabajo):
+    def get_col_index(sheet, col_name):
+        """Busca el índice de columna por nombre, tolerando espacios y mayúsculas."""
+        headers = sheet.row_values(1)
+        for idx, header in enumerate(headers, start=1):
+            if header.strip().upper() == col_name.strip().upper():
+                return idx
+        return None
+
+    def actualizar_empleado_google_sheets(
+        nombre, cedula, cargo, departamento, jefe, sede, correo, celular, estado, salario, direccion, banco, estado_contrato
+    ):
         try:
             client = connect_to_drive()
             spreadsheet = client.open_by_key(SPREADSHEET_ID)
             sheet = spreadsheet.worksheet("BD EMPLEADOS")
             data_gs = sheet.get_all_records()
-            
             fila_encontrada = -1
             cedula_str = str(cedula).strip()
-            
             for idx, row in enumerate(data_gs):
                 if str(row.get("CEDULA", "")).strip() == cedula_str:
                     fila_encontrada = idx + 2
                     break
-            
             if fila_encontrada > 0:
                 updates = [
-                    (sheet.find("NOMBRE COMPLETO").col, nombre),
-                    (sheet.find("CEDULA").col, cedula),
-                    (sheet.find("CARGO").col, cargo),
-                    (sheet.find("AREA").col, area),
-                    (sheet.find("DEPARTAMENTO").col, departamento),
-                    (sheet.find("SEDE").col, sede),
-                    (sheet.find("JEFE INMEDIATO").col, jefe), 
-                    (sheet.find("CORREO").col, correo),
-                    (sheet.find("CELULAR").col, celular),
-                    (sheet.find("CENTRO TRABAJO").col, centro_trabajo)
+                    (get_col_index(sheet, "NOMBRE COMPLETO"), nombre),
+                    (get_col_index(sheet, "CEDULA"), cedula),
+                    (get_col_index(sheet, "CARGO"), cargo),
+                    (get_col_index(sheet, "DEPARTAMENTO"), departamento),
+                    (get_col_index(sheet, "JEFE_DIRECTO"), jefe),
+                    (get_col_index(sheet, "SEDE"), sede),
+                    (get_col_index(sheet, "CORREO"), correo),
+                    (get_col_index(sheet, "CELULAR"), celular),
+                    (get_col_index(sheet, "ESTADO"), estado),
+                    (get_col_index(sheet, "SALARIO APORTES"), salario),
+                    (get_col_index(sheet, "DIRECCIÓN DE RESIDENCIA"), direccion),
+                    (get_col_index(sheet, "BANCO"), banco),
+                    (get_col_index(sheet, "ESTADO_CONTRATO"), estado_contrato),
                 ]
-                
                 for col_idx, val in updates:
-                    sheet.update_cell(fila_encontrada, col_idx, val)
+                    if col_idx:
+                        sheet.update_cell(fila_encontrada, col_idx, val)
                 return True
             return False
         except Exception as e:
@@ -482,53 +492,53 @@ with tab2:
     # Filtros Superiores
     st.markdown("##### 🔍 Filtros de Búsqueda")
     c1, c2, c3, c4 = st.columns(4)
-    f_area = c1.selectbox("Filtrar por Área", ["Todas"] + areas)
-    f_sede = c2.selectbox("Filtrar por Sede", ["Todas"] + sedes)
-    f_dep = c3.selectbox("Filtrar por Depto", ["Todos"] + departamentos)
-    f_cargo = c4.selectbox("Filtrar por Cargo", ["Todos"] + cargos)
+    f_sede = c1.selectbox("Filtrar por Sede", ["Todas"] + sorted(df['SEDE'].dropna().unique()))
+    f_dep = c2.selectbox("Filtrar por Depto", ["Todos"] + sorted(df['DEPARTAMENTO'].dropna().unique()))
+    f_cargo = c3.selectbox("Filtrar por Cargo", ["Todos"] + sorted(df['CARGO'].dropna().unique()))
+    f_estado = c4.selectbox("Filtrar por Estado", ["Todos"] + sorted(df['ESTADO'].dropna().unique()))
 
     df_filt = df.copy()
-    if f_area != "Todas": df_filt = df_filt[df_filt['AREA'] == f_area]
     if f_sede != "Todas": df_filt = df_filt[df_filt['SEDE'] == f_sede]
     if f_dep != "Todos": df_filt = df_filt[df_filt['DEPARTAMENTO'] == f_dep]
     if f_cargo != "Todos": df_filt = df_filt[df_filt['CARGO'] == f_cargo]
+    if f_estado != "Todos": df_filt = df_filt[df_filt['ESTADO'] == f_estado]
 
     empleados_disponibles = sorted(df_filt['NOMBRE COMPLETO'].unique())
-    
+
     if len(empleados_disponibles) > 0:
         seleccion = st.selectbox("Seleccionar Empleado para ver Detalle", empleados_disponibles)
         datos = df_filt[df_filt['NOMBRE COMPLETO'] == seleccion].iloc[0]
-        
+
         st.markdown("---")
-        
-        # Diseño de Tarjeta y Formulario
         col_card_izq, col_card_der = st.columns([1, 2])
-        
+
         # COLUMNA IZQUIERDA: TARJETA VISUAL
         with col_card_izq:
             st.markdown(f"""
-            <div style="background-color: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+            <div style="background-color: white; padding: 28px; border-radius: 14px; border: 1.5px solid #e2e8f0; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.07);">
                 <div style="font-size: 64px; margin-bottom: 10px;">👤</div>
-                <h3 style="margin:0; color: #1e293b; font-size: 20px;">{seleccion}</h3>
-                <p style="color: #3b82f6; font-weight: 600; font-size: 14px; margin-bottom: 20px;">{datos.get('CARGO', 'Sin Cargo')}</p>
-                <div style="text-align: left; font-size: 13px; color: #475569; padding-top: 15px; border-top: 1px solid #f1f5f9;">
+                <h3 style="margin:0; color: #1e293b; font-size: 24px;">{seleccion}</h3>
+                <p style="color: #3b82f6; font-weight: 600; font-size: 16px; margin-bottom: 20px;">{datos.get('CARGO', 'Sin Cargo')}</p>
+                <div style="text-align: left; font-size: 15px; color: #475569; padding-top: 18px; border-top: 1px solid #f1f5f9;">
                     <p style="margin: 8px 0;"><b>📧 Email:</b> {datos.get('CORREO', '--')}</p>
                     <p style="margin: 8px 0;"><b>📱 Celular:</b> {datos.get('CELULAR', '--')}</p>
                     <p style="margin: 8px 0;"><b>📍 Sede:</b> {datos.get('SEDE', '--')}</p>
-                    <p style="margin: 8px 0;"><b>🏢 Área:</b> {datos.get('AREA', '--')}</p>
+                    <p style="margin: 8px 0;"><b>🏢 Departamento:</b> {datos.get('DEPARTAMENTO', '--')}</p>
                     <p style="margin: 8px 0;"><b>🎯 Jefe:</b> {datos.get('JEFE_DIRECTO', 'N/A')}</p>
+                    <p style="margin: 8px 0;"><b>💰 Salario:</b> {datos.get('SALARIO APORTES', '--')}</p>
+                    <p style="margin: 8px 0;"><b>🏦 Banco:</b> {datos.get('BANCO', '--')}</p>
+                    <p style="margin: 8px 0;"><b>🏠 Dirección:</b> {datos.get('DIRECCIÓN DE RESIDENCIA', '--')}</p>
+                    <p style="margin: 8px 0;"><b>📄 Estado Contrato:</b> {datos.get('ESTADO_CONTRATO', '--')}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # Sección de Manuales
             st.write(" ")
             st.markdown("##### 📄 Manual de Funciones")
-
             with st.spinner("Buscando manual de funciones..."):
                 manuals_folder_id = get_or_create_manuals_folder()
                 manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
-
             if manual_file_id:
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button(
@@ -546,38 +556,28 @@ with tab2:
             st.subheader("📝 Edición de Información")
             with st.form("form_edicion"):
                 c_a, c_b = st.columns(2)
-                
-                # Campos editables
                 nuevo_nombre = c_a.text_input("Nombre Completo", value=datos.get("NOMBRE COMPLETO", ""))
-                # Cédula deshabilitada
                 nuevo_cedula = c_b.text_input("Cédula (ID Único)", value=datos.get("CEDULA", ""), disabled=True)
-                
                 nuevo_cargo = c_a.text_input("Cargo", value=datos.get("CARGO", ""))
-                nuevo_area = c_b.text_input("Área", value=datos.get("AREA", ""))
-                
-                nuevo_depto = c_a.text_input("Departamento", value=datos.get("DEPARTAMENTO", ""))
+                nuevo_departamento = c_b.text_input("Departamento", value=datos.get("DEPARTAMENTO", ""))
+                nuevo_jefe = c_a.text_input("Jefe Directo", value=datos.get("JEFE_DIRECTO", ""))
                 nueva_sede = c_b.text_input("Sede", value=datos.get("SEDE", ""))
-                
-                # Recuperar jefe normalizado
-                jefe_actual = datos.get("JEFE_DIRECTO", "") 
-                nuevo_jefe = c_a.text_input("Jefe Inmediato (Nombre Exacto)", value=jefe_actual)
-                
-                nuevo_correo = c_b.text_input("Correo Electrónico", value=datos.get("CORREO", ""))
-                nuevo_cel = c_a.text_input("Celular", value=datos.get("CELULAR", ""))
-                nuevo_centro = c_b.text_input("Centro de Trabajo", value=datos.get("CENTRO TRABAJO", ""))
-                
-                # ID real para el update
-                real_cedula_for_update = datos.get("CEDULA", "")
-                
+                nuevo_correo = c_a.text_input("Correo Electrónico", value=datos.get("CORREO", ""))
+                nuevo_cel = c_b.text_input("Celular", value=datos.get("CELULAR", ""))
+                nuevo_estado = c_a.text_input("Estado", value=datos.get("ESTADO", ""))
+                nuevo_salario = c_b.text_input("Salario", value=datos.get("SALARIO APORTES", ""))
+                nuevo_direccion = c_a.text_input("Dirección de Residencia", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
+                nuevo_banco = c_b.text_input("Banco", value=datos.get("BANCO", ""))
+                nuevo_estado_contrato = c_a.text_input("Estado Contrato", value=datos.get("ESTADO_CONTRATO", ""))
+
                 st.markdown("---")
                 submitted = st.form_submit_button("💾 Guardar Cambios en Base de Datos", use_container_width=True)
-                
                 if submitted:
                     with st.spinner("Conectando con Google Sheets..."):
                         exito = actualizar_empleado_google_sheets(
-                            nuevo_nombre, real_cedula_for_update, nuevo_cargo, nuevo_area, 
-                            nuevo_depto, nueva_sede, nuevo_jefe, nuevo_correo, 
-                            nuevo_cel, nuevo_centro
+                            nuevo_nombre, nuevo_cedula, nuevo_cargo, nuevo_departamento, nuevo_jefe,
+                            nueva_sede, nuevo_correo, nuevo_cel, nuevo_estado, nuevo_salario,
+                            nuevo_direccion, nuevo_banco, nuevo_estado_contrato
                         )
                         if exito:
                             st.success("✅ ¡Datos actualizados exitosamente!")
