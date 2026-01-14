@@ -119,8 +119,8 @@ with tab1:
     st.markdown("### 🔹 Mapa Estructural por Cargos")
     st.info("💡 **Interacción:** El organigrama muestra **CARGOS**. Haz clic o pasa el mouse sobre un cargo para ver la lista de **TODOS** los empleados que lo ocupan.")
 
-    # --- Agrupación por cargo ---
-    df_cargos_final = (
+    # --- Agrupación por cargo y jefe ---
+    df_cargos = (
         df.groupby(["CARGO", "DEPARTAMENTO"], as_index=False)
         .agg({
             "NOMBRE COMPLETO": list,
@@ -129,85 +129,63 @@ with tab1:
             "JEFE_DIRECTO": lambda x: x.mode()[0] if not x.mode().empty else "",
         })
     )
-    # Simula jerarquía simple: todos dependen de "DIRECCIÓN GENERAL"
-    df_cargos_final["JEFE_CARGO_REAL"] = "DIRECCIÓN GENERAL"
-    if "DIRECCIÓN GENERAL" not in df_cargos_final["CARGO"].values:
-        df_cargos_final = pd.concat([
-            pd.DataFrame([{
-                "CARGO": "DIRECCIÓN GENERAL",
-                "DEPARTAMENTO": "DIRECCIÓN",
-                "NOMBRE COMPLETO": ["Gerente General"],
-                "CORREO": [""],
-                "CELULAR": [""],
-                "JEFE_DIRECTO": "",
-                "JEFE_CARGO_REAL": ""
-            }]),
-            df_cargos_final
-        ], ignore_index=True)
 
-    def build_hierarchy_by_role_json(df_in):
-        nodes = {}
-        for _, row in df_in.iterrows():
-            cargo_id = row['CARGO']
-            parent_id = row['JEFE_CARGO_REAL']
-            if parent_id == "" or parent_id == cargo_id:
-                parent_id = None
-            count_emp = len(row['NOMBRE COMPLETO'])
-            cargo_display = wrap_text_node(cargo_id, width=18)
-            formatted_label = f"{{title|{cargo_display}}}\n{{hr|}}\n{{subtitle|{count_emp} Personas}}"
-            depto = row.get('DEPARTAMENTO', 'OTROS')
-            bg_color = color_por_departamento(depto)
-            lista_empleados = []
-            nombres = row['NOMBRE COMPLETO']
-            correos = row['CORREO']
-            celulares = row['CELULAR']
-            for i in range(len(nombres)):
-                lista_empleados.append({
-                    "nombre": nombres[i],
-                    "correo": correos[i] if i < len(correos) else "",
-                    "celular": celulares[i] if i < len(celulares) else ""
-                })
-            nodes[cargo_id] = {
-                "name": formatted_label,
-                "value": count_emp,
-                "children": [],
-                "tooltip_info": {
-                    "cargo": cargo_id,
-                    "departamento": depto,
-                    "area": "",  # <--- No usamos 'AREA'
-                    "empleados": lista_empleados
-                },
-                "itemStyle": {
-                    "color": bg_color,
-                    "borderColor": "#94a3b8",
-                    "borderWidth": 1,
-                    "borderRadius": 4,
-                    "shadowBlur": 5,
-                    "shadowColor": "rgba(0,0,0,0.1)"
-                },
-                "_id": cargo_id,
-                "_parent_id": parent_id
+    # Determina el jefe de cada cargo (por mayoría)
+    cargo_to_jefe = {}
+    for _, row in df_cargos.iterrows():
+        cargo = row["CARGO"]
+        jefe = row["JEFE_DIRECTO"]
+        cargo_to_jefe[cargo] = jefe
+
+    # Encuentra el cargo raíz (el que no es jefe de nadie más)
+    todos_cargos = set(df_cargos["CARGO"])
+    todos_jefes = set(j for j in df_cargos["JEFE_DIRECTO"] if j)
+    raices = list(todos_cargos - todos_jefes)
+    # Si hay más de una raíz, elige "DIRECCIÓN GENERAL" si existe, si no, el primero
+    root_cargo = "DIRECCIÓN GENERAL" if "DIRECCIÓN GENERAL" in raices else (raices[0] if raices else df_cargos["CARGO"].iloc[0])
+
+    # Construye el árbol de cargos
+    def build_tree(cargo, df_cargos, cargo_to_jefe):
+        node_row = df_cargos[df_cargos["CARGO"] == cargo].iloc[0]
+        hijos = [c for c, j in cargo_to_jefe.items() if j == cargo and c != cargo]
+        children = [build_tree(h, df_cargos, cargo_to_jefe) for h in hijos]
+        count_emp = len(node_row["NOMBRE COMPLETO"])
+        cargo_display = wrap_text_node(cargo, width=18)
+        formatted_label = f"{{title|{cargo_display}}}\n{{hr|}}\n{{subtitle|{count_emp} Personas}}"
+        depto = node_row.get('DEPARTAMENTO', 'OTROS')
+        bg_color = color_por_departamento(depto)
+        lista_empleados = []
+        nombres = node_row['NOMBRE COMPLETO']
+        correos = node_row['CORREO']
+        celulares = node_row['CELULAR']
+        for i in range(len(nombres)):
+            lista_empleados.append({
+                "nombre": nombres[i],
+                "correo": correos[i] if i < len(correos) else "",
+                "celular": celulares[i] if i < len(celulares) else ""
+            })
+        return {
+            "name": formatted_label,
+            "value": count_emp,
+            "children": children,
+            "tooltip_info": {
+                "cargo": cargo,
+                "departamento": depto,
+                "area": "",
+                "empleados": lista_empleados
+            },
+            "itemStyle": {
+                "color": bg_color,
+                "borderColor": "#94a3b8",
+                "borderWidth": 1,
+                "borderRadius": 4,
+                "shadowBlur": 5,
+                "shadowColor": "rgba(0,0,0,0.1)"
             }
-        forest = []
-        for cargo_id, node in nodes.items():
-            parent_id = node.get("_parent_id")
-            if parent_id and parent_id in nodes:
-                nodes[parent_id]["children"].append(node)
-            else:
-                forest.append(node)
-        if len(forest) == 1:
-            return forest[0]
-        else:
-            return {
-                "name": "{title|DIRECCIÓN GENERAL}\n{hr|}\n{subtitle|ESTRUCTURA}",
-                "children": forest,
-                "tooltip_info": {"cargo": "Agrupador Raíz", "departamento": "-", "empleados": []},
-                "itemStyle": {"color": "#1e293b", "borderColor": "#0f172a"},
-                "label": {"color": "white"}
-            }
+        }
 
     try:
-        tree_data = build_hierarchy_by_role_json(df_cargos_final)
+        tree_data = build_tree(root_cargo, df_cargos, cargo_to_jefe)
         option = {
             "tooltip": {
                 "trigger": 'item',
@@ -437,11 +415,9 @@ with tab2:
     if f_estado != "Todos": df_filt = df_filt[df_filt['ESTADO'] == f_estado]
 
     empleados_disponibles = sorted(df_filt['NOMBRE COMPLETO'].unique())
-
-    if len(empleados_disponibles) > 0:
+    if empleados_disponibles:
         seleccion = st.selectbox("Seleccionar Empleado para ver Detalle", empleados_disponibles)
         datos = df_filt[df_filt['NOMBRE COMPLETO'] == seleccion].iloc[0]
-
         st.markdown("---")
         col_card_izq, col_card_der = st.columns([1, 2])
 
@@ -464,7 +440,6 @@ with tab2:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
             st.write(" ")
             st.markdown("##### 📄 Manual de Funciones")
             with st.spinner("Buscando manual de funciones..."):
@@ -517,6 +492,5 @@ with tab2:
                             st.rerun()
                         else:
                             st.error("❌ Error al actualizar. Verifica que la cédula no haya cambiado.")
-
     else:
         st.warning("⚠️ No se encontraron empleados con los filtros seleccionados.")
