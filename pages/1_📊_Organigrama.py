@@ -56,7 +56,7 @@ def render_organigrama(df_empleados):
     empleados_json = df_empleados.to_json(orient='records')
     html_code = f"""
     <!DOCTYPE html>
-    <html lang="es" style="height: 100%;">
+    <html lang="es">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,42 +67,71 @@ def render_organigrama(df_empleados):
           font-family: 'Plus Jakarta Sans', sans-serif;
           background: linear-gradient(to bottom right, #f8fafc, #e0e7ff, #ede9fe);
         }}
-        .org-tree {{
+        .tree-container {{
+          width: 100%;
+          overflow-x: auto;
+          padding: 2rem 0;
+        }}
+        .tree {{
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          position: relative;
+        }}
+        .tree ul {{
+          padding-top: 20px; position: relative;
+          transition: all 0.5s;
+          display: flex;
+          justify-content: center;
+        }}
+        .tree li {{
+          list-style-type: none;
+          text-align: center;
+          position: relative;
+          padding: 20px 5px 0 5px;
+          transition: all 0.5s;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 0.5rem;
         }}
-        .org-level {{
-          display: flex;
-          justify-content: center;
-          gap: 0.5rem;
-          position: relative;
-          padding-top: 1rem;
-          flex-wrap: wrap;
+        .tree li::before, .tree li::after {{
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 50%;
+          border-top: 2px solid #6366f1;
+          width: 50%;
+          height: 20px;
         }}
-        .org-node {{
-          position: relative;
+        .tree li::after {{
+          right: auto; left: 50%;
+          border-left: 2px solid #6366f1;
+        }}
+        .tree li:only-child::before, .tree li:only-child::after {{
+          display: none;
+        }}
+        .tree li:only-child {{
+          padding-top: 0;
+        }}
+        .tree li:first-child::before, .tree li:last-child::after {{
+          border: 0 none;
+        }}
+        .tree li:last-child::after {{
+          border-radius: 0 5px 0 0;
+        }}
+        .tree li .org-node {{
           min-width: 120px;
           max-width: 160px;
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+          color: white;
           border-radius: 10px;
           padding: 0.5rem 0.7rem;
           box-shadow: 0 2px 8px rgba(99, 102, 241, 0.10), 0 1px 4px rgba(0, 0, 0, 0.04);
           border: 1px solid rgba(99, 102, 241, 0.12);
-          transition: all 0.2s ease;
-          cursor: pointer;
           margin-bottom: 0.3rem;
+          position: relative;
         }}
-        .org-node.ceo {{
-          background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-          color: white;
-          min-width: 160px;
-        }}
-        .org-node.manager {{
-          border-left: 2px solid #6366f1;
-        }}
-        .node-avatar {{
+        .tree li .org-node .node-avatar {{
           width: 28px;
           height: 28px;
           border-radius: 6px;
@@ -112,28 +141,21 @@ def render_organigrama(df_empleados):
           font-weight: 700;
           font-size: 0.9rem;
           margin-bottom: 0.2rem;
-          background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-          color: #4f46e5;
-        }}
-        .org-node.ceo .node-avatar {{
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(255,255,255,0.2);
           color: white;
         }}
-        .node-name {{
+        .tree li .org-node .node-name {{
           font-weight: 600;
           font-size: 0.8rem;
           margin-bottom: 0.1rem;
           white-space: normal;
         }}
-        .node-position {{
+        .tree li .org-node .node-position {{
           font-size: 0.7rem;
-          color: #6b7280;
+          color: #fef3c7;
           margin-bottom: 0.1rem;
         }}
-        .org-node.ceo .node-position {{
-          color: rgba(255, 255, 255, 0.85);
-        }}
-        .node-dept {{
+        .tree li .org-node .node-dept {{
           display: inline-block;
           padding: 0.10rem 0.3rem;
           border-radius: 10px;
@@ -145,46 +167,27 @@ def render_organigrama(df_empleados):
           background: #fef3c7;
           color: #92400e;
         }}
-        .node-sede {{
+        .tree li .org-node .node-sede {{
           font-size: 0.6rem;
-          color: #2563eb;
+          color: #fef3c7;
           margin-top: 0.05rem;
         }}
-        .node-estado {{
+        .tree li .org-node .node-tipo {{
           font-size: 0.6rem;
-          color: #059669;
+          color: #fef3c7;
           margin-top: 0.05rem;
         }}
-        .node-tipo {{
+        .tree li .org-node .node-contact {{
           font-size: 0.6rem;
-          color: #b91c1c;
+          color: #fef3c7;
           margin-top: 0.05rem;
-        }}
-        .node-contact {{
-          font-size: 0.6rem;
-          color: #64748b;
-          margin-top: 0.05rem;
-        }}
-        .connector {{
-          position: absolute;
-          left: 50%;
-          top: 100%;
-          width: 2px;
-          height: 20px;
-          background: linear-gradient(180deg, #6366f1 0%, #a5b4fc 100%);
-          z-index: 1;
-        }}
-        .org-level:not(:first-child) .org-node {{
-          margin-top: 20px;
         }}
       </style>
     </head>
     <body>
-      <div class="header" style="text-align:center;margin-bottom:0.5rem;">
-        <h1 style="font-size:1.1rem;font-weight:700;color:#1e293b;">Organigrama Empresarial</h1>
-        <p style="color:#64748b;margin:0;font-size:0.8rem;">Estructura Organizacional Jerárquica</p>
+      <div class="tree-container">
+        <div class="tree" id="org-tree"></div>
       </div>
-      <div id="org-chart" class="org-tree"></div>
       <script>
         const employees = {empleados_json};
         function getInitials(name) {{
@@ -206,52 +209,40 @@ def render_organigrama(df_empleados):
           }});
           return roots;
         }}
-        function renderOrgChart() {{
-          const tree = buildTree();
-          const orgChart = document.getElementById('org-chart');
-          orgChart.innerHTML = '';
-          function renderLevel(nodes, level = 0, parentDiv = null) {{
-            if (nodes.length === 0) return;
-            const levelDiv = document.createElement('div');
-            levelDiv.className = 'org-level';
-            nodes.forEach(node => {{
-              const nodeDiv = document.createElement('div');
-              const isCEO = level === 0 && !node.parent_id;
-              nodeDiv.className = `org-node ${{isCEO ? 'ceo' : node.children.length > 0 ? 'manager' : ''}}`;
-              nodeDiv.innerHTML = `
-                <div class="node-avatar">${{getInitials(node.name)}}</div>
-                <div class="node-name">${{node.name}}</div>
-                <div class="node-position">${{node.position}}</div>
-                <span class="node-dept">${{node.department}}</span>
-                <div class="node-sede">${{node.sede || ''}}</div>
-                <div class="node-estado">${{node.estado || ''}}</div>
-                <div class="node-tipo">${{node.tipo || ''}}</div>
-                <div class="node-contact">${{node.email || ''}}</div>
-                <div class="node-contact">${{node.phone || ''}}</div>
-              `;
-              levelDiv.appendChild(nodeDiv);
-              // Conector visual (línea vertical)
-              if (parentDiv) {{
-                const connector = document.createElement('div');
-                connector.className = 'connector';
-                parentDiv.appendChild(connector);
-              }}
-            }});
-            orgChart.appendChild(levelDiv);
-            nodes.forEach(node => {{
-              if (node.children && node.children.length > 0) {{
-                renderLevel(node.children, level + 1, levelDiv);
-              }}
-            }});
-          }}
-          renderLevel(tree);
+        function createNodeHtml(node) {{
+          return `
+            <div class="org-node">
+              <div class="node-avatar">${{getInitials(node.name)}}</div>
+              <div class="node-name">${{node.name}}</div>
+              <div class="node-position">${{node.position}}</div>
+              <span class="node-dept">${{node.department}}</span>
+              <div class="node-sede">${{node.sede || ''}}</div>
+              <div class="node-tipo">${{node.tipo || ''}}</div>
+              <div class="node-contact">${{node.email || ''}}</div>
+              <div class="node-contact">${{node.phone || ''}}</div>
+            </div>
+          `;
         }}
-        renderOrgChart();
+        function renderTree(nodes) {{
+          if (!nodes.length) return '';
+          let html = '<ul>';
+          for (const node of nodes) {{
+            html += '<li>' + createNodeHtml(node);
+            if (node.children && node.children.length > 0) {{
+              html += renderTree(node.children);
+            }}
+            html += '</li>';
+          }}
+          html += '</ul>';
+          return html;
+        }}
+        const treeData = buildTree();
+        document.getElementById('org-tree').innerHTML = renderTree(treeData);
       </script>
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=800, scrolling=True)
+    st.components.v1.html(html_code, height=900, scrolling=True)
 
 with tab1:
     st.subheader("🌳 Organigrama Visual Jerárquico")
