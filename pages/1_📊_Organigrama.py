@@ -324,18 +324,11 @@ with tab1:
     # Leyenda Estática
     st.markdown("---")
     st.markdown("#### 🎨 Departamentos")
-    
-    cols_leg = st.columns(6)
-    items_leg = list(leyenda_colores.items())
-    for i, (dept, color) in enumerate(items_leg):
-        col_idx = i % 6
-        with cols_leg[col_idx]:
-            st.markdown(
-                f"<div style='display:flex; align-items:center; margin-bottom:5px;'>"
-                f"<div style='width:15px; height:15px; background:{color}; border:1px solid #ccc; margin-right:8px; border-radius:3px;'></div>"
-                f"<span style='font-size:12px;'>{dept}</span></div>", 
-                unsafe_allow_html=True
-            )
+    for dept, color in leyenda_colores.items():
+        st.markdown(
+            f"<span style='display:inline-block;width:18px;height:18px;background:{color};border-radius:4px;margin-right:6px;'></span> {dept}",
+            unsafe_allow_html=True
+        )
 
 # ==============================================================================
 # TAB 2: FICHA DE EMPLEADO & EDICIÓN (MANTENIDO IGUAL PERO ROBUSTO)
@@ -490,3 +483,76 @@ with tab2:
 
     else:
         st.warning("⚠️ No se encontraron empleados con los filtros seleccionados.")
+
+def empleados_por_cargo(df):
+    cargo_dict = {}
+    for cargo, grupo in df.groupby('CARGO'):
+        cargo_dict[cargo] = list(grupo['NOMBRE COMPLETO'])
+    return cargo_dict
+
+empleados_cargo = empleados_por_cargo(df_org_final)
+
+option = {
+    "tooltip": {
+        "trigger": 'item',
+        "triggerOn": 'mousemove',
+        "enterable": True,
+        "formatter": """
+            function(params) {
+                var info = params.data.tooltip_info;
+                if (!info) return '';
+                let html = `<div style="font-family: sans-serif; min-width: 180px; padding: 10px;">
+                    <b>Cargo:</b> ${params.data.name}<br>
+                    <b>Departamento:</b> ${info.departamento || ''}<br>
+                    <b>Jefe de Cargo:</b> ${info.jefe_cargo || ''}<br>
+                    <i>Haz clic para ver empleados</i>
+                </div>`;
+                return html;
+            }
+        """
+    },
+    "series": [
+        {
+            "type": "tree",
+            "data": [tree_data],
+            "left": '5%',
+            "right": '5%',
+            "top": '100px',
+            "bottom": '100px',
+            "orient": 'TB',
+            "layout": 'orthogonal',
+            "symbol": 'rect',
+            "symbolSize": [160, 50],
+            "roam": True,
+            "initialTreeDepth": 1,
+            "expandAndCollapse": True,
+            "edgeShape": "polyline",
+            "edgeForkPosition": "60%",
+            "lineStyle": {
+                "color": "#64748b",
+                "width": 2,
+                "curveness": 0
+            },
+            "label": {
+                "show": True,
+                "position": 'inside',
+                "color": '#1e293b',
+                "fontSize": 11
+            },
+            "animationDuration": 550,
+            "animationDurationUpdate": 750
+        }
+    ]
+}
+
+# Renderiza y captura el clic
+event = st_echarts(options=option, height="900px", events=["click"])
+
+if event and "name" in event:
+    cargo_seleccionado = event["name"]
+    empleados = empleados_cargo.get(cargo_seleccionado, [])
+    st.markdown(f"### 👥 Empleados en el cargo **{cargo_seleccionado}**")
+    if empleados:
+        st.markdown("\n".join([f"- {e}" for e in empleados]))
+    else:
+        st.info("No hay empleados activos en este cargo.")
