@@ -163,7 +163,6 @@ def detect_and_break_cycles(df_input):
 df_org_final = detect_and_break_cycles(df_org_base)
 
 # --- Normalización y aseguramiento de columnas clave ---
-# Asegura que las columnas necesarias existan y estén en mayúsculas
 df_org_final.columns = [str(c).strip().upper() for c in df_org_final.columns]
 
 # Renombra columnas si es necesario para compatibilidad
@@ -178,8 +177,8 @@ if "CORREO " in df_org_final.columns:
 if "CELULAR " in df_org_final.columns:
     df_org_final = df_org_final.rename(columns={"CELULAR ": "CELULAR"})
 
-# Si falta alguna columna, la agregamos vacía
-for col in ["CARGO", "DEPARTAMENTO", "JEFE_DIRECTO", "CORREO", "CELULAR"]:
+# Si falta alguna columna, la agregamos vacía (¡incluye 'AREA' aunque no la uses!)
+for col in ["CARGO", "DEPARTAMENTO", "JEFE_DIRECTO", "CORREO", "CELULAR", "AREA"]:
     if col not in df_org_final.columns:
         df_org_final[col] = ""
 
@@ -203,9 +202,9 @@ df_cargos_group = df_org_final.groupby('CARGO').agg({
     'NOMBRE COMPLETO': list,
     'CORREO': list,
     'CELULAR': list,
-    'DEPARTAMENTO': 'first', # Asumimos que un cargo pertenece a un departamento principal
-    'AREA': 'first',
-    'JEFE_CARGO_REAL': lambda x: Counter(x).most_common(1)[0][0] if len(x) > 0 else "" # Moda: El jefe más común
+    'DEPARTAMENTO': 'first',
+    'AREA': 'first',  # No importa si está vacía, ya no falla
+    'JEFE_CARGO_REAL': lambda x: Counter(x).most_common(1)[0][0] if len(x) > 0 else ""
 }).reset_index()
 
 # 4. Anti-bucles para CARGOS (Porque Gerente puede reportar a Director y Director a Gerente por error)
