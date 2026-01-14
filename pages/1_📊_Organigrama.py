@@ -162,6 +162,27 @@ def detect_and_break_cycles(df_input):
 
 df_org_final = detect_and_break_cycles(df_org_base)
 
+# --- Normalización y aseguramiento de columnas clave ---
+# Asegura que las columnas necesarias existan y estén en mayúsculas
+df_org_final.columns = [str(c).strip().upper() for c in df_org_final.columns]
+
+# Renombra columnas si es necesario para compatibilidad
+if "CARGO " in df_org_final.columns:
+    df_org_final = df_org_final.rename(columns={"CARGO ": "CARGO"})
+if "DEPARTAMENTO " in df_org_final.columns:
+    df_org_final = df_org_final.rename(columns={"DEPARTAMENTO ": "DEPARTAMENTO"})
+if "JEFE_DIRECTO" not in df_org_final.columns and "JEFE DIRECTO" in df_org_final.columns:
+    df_org_final = df_org_final.rename(columns={"JEFE DIRECTO": "JEFE_DIRECTO"})
+if "CORREO " in df_org_final.columns:
+    df_org_final = df_org_final.rename(columns={"CORREO ": "CORREO"})
+if "CELULAR " in df_org_final.columns:
+    df_org_final = df_org_final.rename(columns={"CELULAR ": "CELULAR"})
+
+# Si falta alguna columna, la agregamos vacía
+for col in ["CARGO", "DEPARTAMENTO", "JEFE_DIRECTO", "CORREO", "CELULAR"]:
+    if col not in df_org_final.columns:
+        df_org_final[col] = ""
+
 # Listas para filtros (Tab 2)
 areas = sorted(df['AREA'].dropna().unique()) if 'AREA' in df.columns else []
 sedes = sorted(df['SEDE'].dropna().unique()) if 'SEDE' in df.columns else []
