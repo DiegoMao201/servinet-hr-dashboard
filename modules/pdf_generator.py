@@ -179,17 +179,3 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
 </div>
 """
 
-st.markdown(f"""
-<div class="empleado-card" style="background-color: white; padding: 32px; border-radius: 16px; border: 1.5px solid #e2e8f0; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.07);">
-    <div style="font-size: 64px; margin-bottom: 10px;">👤</div>
-    <h3 style="margin:0; color: #1e293b; font-size: 24px;">{seleccion}</h3>
-    <p style="color: #3b82f6; font-weight: 600; font-size: 16px; margin-bottom: 20px;">{datos.get('CARGO', 'Sin Cargo')}</p>
-    <div style="text-align: left; font-size: 15px; color: #475569; padding-top: 18px; border-top: 1px solid #f1f5f9;">
-        <p style="margin: 8px 0;"><b>📧 Email:</b> {datos.get('CORREO', '--')}</p>
-        <p style="margin: 8px 0;"><b>📱 Celular:</b> {datos.get('CELULAR', '--')}</p>
-        <p style="margin: 8px 0;"><b>📍 Sede:</b> {datos.get('SEDE', '--')}</p>
-        <p style="margin: 8px 0;"><b>🏢 Área:</b> {datos.get('AREA', '--')}</p>
-        <p style="margin: 8px 0;"><b>🎯 Jefe:</b> {datos.get('JEFE_DIRECTO', 'N/A')}</p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
