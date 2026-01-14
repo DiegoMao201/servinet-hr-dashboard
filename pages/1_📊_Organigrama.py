@@ -205,6 +205,8 @@ with tab1:
                     "nombre_real": nombre_actual,
                     "area": row.get('AREA', 'N/A'),
                     "sede": row.get('SEDE', 'N/A'),
+                    "departamento": row.get('DEPARTAMENTO', 'N/A'),
+                    "tipo": row.get('PLANTA - COOPERATIVA', ''),
                     "email": row.get('CORREO', ''),
                     "celular": row.get('CELULAR', '')
                 },
@@ -252,94 +254,60 @@ with tab1:
             "tooltip": {
                 "trigger": 'item',
                 "triggerOn": 'mousemove',
-                "enterable": True, # Permite entrar al tooltip
+                "enterable": True,
                 "formatter": """
-                    function(params) {
-                        var info = params.data.tooltip_info;
-                        if (!info) return '';
-                        return `
-                            <div style="font-family: sans-serif; min-width: 200px; padding: 10px; border-radius: 4px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-                                <h4 style="margin:0 0 5px 0; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${info.nombre_real}</h4>
-                                <div style="font-size: 12px; color: #333; line-height: 1.5;">
-                                    <strong>Cargo:</strong> ${params.value}<br>
-                                    <strong>Área:</strong> ${info.area}<br>
-                                    <strong>Sede:</strong> ${info.sede}<br>
-                                    <hr style="margin: 5px 0; border: 0; border-top: 1px solid #eee;">
-                                    ${info.email ? `📧 ${info.email}<br>` : ''}
-                                    ${info.celular ? `📱 ${info.celular}` : ''}
-                                </div>
-                            </div>
-                        `;
-                    }
+    function(params) {
+        var info = params.data.tooltip_info;
+        if (!info) return '';
+        let html = `<div style="font-family: sans-serif; min-width: 220px; padding: 10px; border-radius: 4px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+            <h4 style="margin:0 0 5px 0; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${info.nombre_real}</h4>
+            <div style="font-size: 12px; color: #333; line-height: 1.5;">
+                <b>Cargo:</b> ${params.value || ''}<br>
+                <b>Área:</b> ${info.area || ''}<br>
+                <b>Sede:</b> ${info.sede || ''}<br>
+                <b>Departamento:</b> ${info.departamento || ''}<br>
+                <b>Tipo:</b> ${info.tipo || ''}<br>
+                <b>Email:</b> ${info.email || ''}<br>
+                <b>Celular:</b> ${info.celular || ''}<br>
+            </div>
+        </div>`;
+        return html;
+    }
                 """
             },
             "series": [
                 {
                     "type": "tree",
                     "data": [tree_data],
-                    
-                    # --- DISEÑO Y DISTRIBUCIÓN ---
                     "left": '5%',
                     "right": '5%',
-                    "top": '80px',     # Espacio arriba
-                    "bottom": '80px',  # Espacio abajo
-                    
-                    "orient": 'TB',    # Top to Bottom (Estándar)
-                    "layout": 'orthogonal', # CLAVE: Distribución limpia
-                    
-                    "symbol": 'rect',  # Tarjetas rectangulares
-                    "symbolSize": [190, 75], # Tamaño FIJO de la tarjeta (Ancho, Alto)
-                    
-                    "roam": True, # Permite zoom y paneo
-                    "initialTreeDepth": 2, # Cuántos niveles mostrar al inicio (Cambia a -1 para ver todo)
-                    
-                    # --- ESTILO DE LÍNEAS (CONECTORES) ---
-                    "edgeShape": "polyline", # CLAVE: Líneas rectas tipo Visio
-                    "edgeForkPosition": "60%", # Donde se divide la línea
+                    "top": '100px',
+                    "bottom": '100px',
+                    "orient": 'TB',
+                    "layout": 'orthogonal',
+                    "symbol": 'rect',
+                    "symbolSize": [160, 60],  # Más compacto
+                    "roam": True,
+                    "initialTreeDepth": 1,  # Solo gerente y directivos al inicio
+                    "expandAndCollapse": True,
+                    "edgeShape": "polyline",
+                    "edgeForkPosition": "60%",
                     "lineStyle": {
                         "color": "#64748b",
                         "width": 2,
-                        "curveness": 0 # Sin curvas
+                        "curveness": 0
                     },
-                    
-                    # --- ESTILO DE ETIQUETAS (TEXTO DENTRO DEL NODO) ---
                     "label": {
                         "show": True,
                         "position": 'inside',
                         "color": '#1e293b',
-                        "rotate": 0,
-                        "verticalAlign": 'middle',
-                        "align": 'center',
-                        "fontSize": 11,
-                        
-                        # Definición de estilos ricos
+                        "fontSize": 10,
                         "rich": {
-                            "title": {
-                                "color": "#0f172a",
-                                "fontSize": 12,
-                                "fontWeight": "bold",
-                                "align": "center",
-                                "lineHeight": 14,
-                                "padding": [0, 5, 0, 5]
-                            },
-                            "hr": {
-                                "borderColor": "#cbd5e1",
-                                "width": "100%",
-                                "borderWidth": 0.5,
-                                "height": 0,
-                                "margin": [5, 0, 5, 0]
-                            },
-                            "subtitle": {
-                                "color": "#475569",
-                                "fontSize": 10,
-                                "align": "center",
-                                "lineHeight": 12,
-                                "padding": [2, 0, 0, 0]
-                            }
+                            "title": {"color": "#0f172a", "fontSize": 12, "fontWeight": "bold", "align": "center", "lineHeight": 14, "padding": [0, 5, 0, 5]},
+                            "hr": {"borderColor": "#cbd5e1", "width": "100%", "borderWidth": 0.5, "height": 0, "margin": [5, 0, 5, 0]},
+                            "subtitle": {"color": "#475569", "fontSize": 10, "align": "center", "lineHeight": 12, "padding": [2, 0, 0, 0]}
                         }
                     },
-                    
-                    # --- COMPORTAMIENTO ---
                     "expandAndCollapse": True,
                     "animationDuration": 550,
                     "animationDurationUpdate": 750
