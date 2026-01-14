@@ -9,6 +9,8 @@ from streamlit_echarts import st_echarts
 try:
     from modules.database import get_employees, connect_to_drive, SPREADSHEET_ID
     from modules.drive_manager import get_or_create_manuals_folder, find_manual_in_drive, download_manual_from_drive
+    from modules.ai_brain import client as openai_client
+    from modules.pdf_generator import export_organigrama_pdf
 except ImportError as e:
     st.error(f"Error al importar módulos locales: {e}. Verifica que la carpeta 'modules' y los archivos existan.")
     st.stop()
@@ -484,75 +486,77 @@ with tab2:
     else:
         st.warning("⚠️ No se encontraron empleados con los filtros seleccionados.")
 
-def empleados_por_cargo(df):
-    cargo_dict = {}
-    for cargo, grupo in df.groupby('CARGO'):
-        cargo_dict[cargo] = list(grupo['NOMBRE COMPLETO'])
-    return cargo_dict
+# --- Genera la descripción general del organigrama con IA ---
 
-empleados_cargo = empleados_por_cargo(df_org_final)
+def generar_descripcion_general_organigrama(cargos_info):
+    if not openai_client:
+        return "Descripción no disponible (falta API KEY de OpenAI)."
+    prompt = f"""
+Eres consultor senior en RRHH. Resume y describe el organigrama de la empresa SERVINET, basado en los siguientes cargos y departamentos:
+{[ (c['cargo'], c['departamento'], len(c['empleados'])) for c in cargos_info ]}
+Incluye una visión estratégica, fortalezas y oportunidades de mejora.
+"""
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    return response.choices[0].message.content.strip()
 
-option = {
-    "tooltip": {
-        "trigger": 'item',
-        "triggerOn": 'mousemove',
-        "enterable": True,
-        "formatter": """
-            function(params) {
-                var info = params.data.tooltip_info;
-                if (!info) return '';
-                let html = `<div style="font-family: sans-serif; min-width: 180px; padding: 10px;">
-                    <b>Cargo:</b> ${params.data.name}<br>
-                    <b>Departamento:</b> ${info.departamento || ''}<br>
-                    <b>Jefe de Cargo:</b> ${info.jefe_cargo || ''}<br>
-                    <i>Haz clic para ver empleados</i>
-                </div>`;
-                return html;
-            }
-        """
-    },
-    "series": [
-        {
-            "type": "tree",
-            "data": [tree_data],
-            "left": '5%',
-            "right": '5%',
-            "top": '100px',
-            "bottom": '100px',
-            "orient": 'TB',
-            "layout": 'orthogonal',
-            "symbol": 'rect',
-            "symbolSize": [160, 50],
-            "roam": True,
-            "initialTreeDepth": 1,
-            "expandAndCollapse": True,
-            "edgeShape": "polyline",
-            "edgeForkPosition": "60%",
-            "lineStyle": {
-                "color": "#64748b",
-                "width": 2,
-                "curveness": 0
-            },
-            "label": {
-                "show": True,
-                "position": 'inside',
-                "color": '#1e293b',
-                "fontSize": 11
-            },
-            "animationDuration": 550,
-            "animationDurationUpdate": 750
-        }
-    ]
+# --- Construye la lista de cargos_info ---
+cargos_info = []
+for cargo, grupo in df_org_final.groupby('CARGO'):
+    departamento = grupo['DEPARTAMENTO'].iloc[0] if 'DEPARTAMENTO' in grupo.columns else "OTROS"
+    empleados = list(grupo['NOMBRE COMPLETO'])
+    # Descripción por IA para cada cargo
+    prompt_cargo = f"Describe brevemente el cargo '{cargo}' en el departamento '{departamento}' para una empresa de telecomunicaciones."
+    desc_cargo = ""
+    if openai_client:
+        resp = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt_cargo}],
+            temperature=0.2
+        )
+        desc_cargo = resp.choices[0].message.content.strip()
+    cargos_info.append({
+        "cargo": cargo,
+        "departamento": departamento,
+        "descripcion": desc_cargo,
+        "empleados": empleados
+    })
+
+# --- Descripción general del organigrama ---
+descripcion_general = generar_descripcion_general_organigrama(cargos_info)
+
+# --- Leyenda de colores ---
+leyenda_colores = {
+    "ADMINISTRATIVO": "#fef9c3",
+    "OPERATIVO": "#dcfce7",
+    "FINANZAS": "#fee2e2",
+    "COMERCIAL": "#dbeafe",
+    "RRHH": "#fce7f3",
+    "TECNOLOGÍA": "#f3e8ff",
+    "LOGÍSTICA": "#d1fae5",
+    "DIRECCIÓN": "#fef08a",
+    "JURÍDICO": "#fbcfe8",
+    "MARKETING": "#ffedd5",
+    "OTROS": "#f1f5f9"
 }
 
-# Renderiza y captura el clic
-event = st_echarts(options=option, height="900px", events=["click"])
-
-if event and "name" in event:
-    cargo_seleccionado = event["name"]
-    empleados = empleados_cargo.get(cargo_seleccionado, [])
-    st.markdown(f"### 👥 Empleados en el cargo **{cargo_seleccionado}**")
-    if empleados:
-        st.markdown("\n".join([f"- {e}" for e in empleados]))
-    else:
-        st.info("No hay empleados activos en este cargo.")
+# --- Botón para exportar PDF ---
+if st.button("📄 Exportar Organigrama por Cargos a PDF"):
+    with st.spinner("Generando PDF profesional..."):
+        pdf_filename = export_organigrama_pdf(
+            cargos_info=cargos_info,
+            descripcion_general=descripcion_general,
+            leyenda_colores=leyenda_colores,
+            filename="Organigrama_Cargos.pdf"
+        )
+        with open(pdf_filename, "rb") as f:
+            st.download_button(
+                label="📥 Descargar PDF Organigrama",
+                data=f.read(),
+                file_name=pdf_filename,
+                mime="application/pdf"
+            )
+        st.success("PDF generado exitosamente.")

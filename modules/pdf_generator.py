@@ -73,6 +73,82 @@ def create_manual_pdf_from_template(data, cargo, empleado=None):
     HTML(string=html_content).write_pdf(abs_path)
     return abs_path
 
+def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, filename="Organigrama_Cargos.pdf"):
+    """
+    cargos_info: lista de dicts con keys: cargo, departamento, descripcion, empleados (lista)
+    descripcion_general: texto generado por IA
+    leyenda_colores: dict departamento -> color
+    """
+    template_html = """
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>Organigrama por Cargos</title>
+      <style>
+        body { font-family: 'Inter', Arial, sans-serif; color: #222; background: #fff; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .title { font-size: 2.2em; color: #003d6e; font-weight: bold; margin-bottom: 10px; }
+        .subtitle { font-size: 1.1em; color: #00a8e1; margin-bottom: 20px; }
+        .leyenda { margin-bottom: 20px; }
+        .leyenda span { display: inline-block; width: 18px; height: 18px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
+        .descripcion { background: #e6f7ff; border-left: 4px solid #00a8e1; padding: 10px; margin-bottom: 25px; font-size: 1.1em; }
+        .cargo-card { border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 18px; padding: 18px; background: #f8fafc; }
+        .cargo-title { font-size: 1.3em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
+        .cargo-depto { font-size: 0.95em; font-weight: bold; padding: 3px 12px; border-radius: 10px; margin-bottom: 8px; display: inline-block; }
+        .cargo-desc { font-size: 1em; color: #475569; margin-bottom: 8px; }
+        .cargo-empleados { font-size: 0.98em; color: #222; margin-bottom: 4px; }
+        .footer { margin-top: 40px; text-align: right; font-size: 0.9em; color: #888; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="title">Organigrama Corporativo por Cargos</div>
+        <div class="subtitle">SERVINET - RRHH</div>
+      </div>
+      <div class="leyenda">
+        <b>Leyenda de Departamentos:</b><br>
+        {% for dept, color in leyenda_colores.items() %}
+          <span style="background:{{ color }};"></span> {{ dept }} &nbsp;
+        {% endfor %}
+      </div>
+      <div class="descripcion">
+        <b>Descripción General:</b><br>
+        {{ descripcion_general }}
+      </div>
+      {% for cargo in cargos_info %}
+        <div class="cargo-card">
+          <div class="cargo-title">{{ cargo.cargo }}</div>
+          <div class="cargo-depto" style="background:{{ leyenda_colores.get(cargo.departamento, '#f1f5f9') }};">
+            {{ cargo.departamento }}
+          </div>
+          <div class="cargo-desc">{{ cargo.descripcion }}</div>
+          <div class="cargo-empleados">
+            <b>Empleados:</b>
+            <ul>
+              {% for emp in cargo.empleados %}
+                <li>{{ emp }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endfor %}
+      <div class="footer">
+        Documento generado automáticamente por IA y RRHH. SERVINET 2024.
+      </div>
+    </body>
+    </html>
+    """
+    env = Environment(loader=FileSystemLoader("."))
+    template = env.from_string(template_html)
+    html_content = template.render(
+        cargos_info=cargos_info,
+        descripcion_general=descripcion_general,
+        leyenda_colores=leyenda_colores
+    )
+    HTML(string=html_content).write_pdf(filename)
+    return filename
+
 # En manual_template.html, después de la portada
 """
 <div class="pdf-page shadow-2xl mb-10 animate-fade-in">
