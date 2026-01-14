@@ -93,11 +93,14 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
         .leyenda { margin-bottom: 20px; }
         .leyenda span { display: inline-block; width: 18px; height: 18px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
         .descripcion { background: #e6f7ff; border-left: 4px solid #00a8e1; padding: 10px; margin-bottom: 25px; font-size: 1.1em; }
-        .cargo-card { border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 18px; padding: 18px; background: #f8fafc; }
-        .cargo-title { font-size: 1.3em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
-        .cargo-depto { font-size: 0.95em; font-weight: bold; padding: 3px 12px; border-radius: 10px; margin-bottom: 8px; display: inline-block; }
-        .cargo-desc { font-size: 1em; color: #475569; margin-bottom: 8px; }
-        .cargo-empleados { font-size: 0.98em; color: #222; margin-bottom: 4px; }
+        .cargo-card { border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 28px; padding: 22px; background: #f8fafc; }
+        .cargo-title { font-size: 1.5em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
+        .cargo-depto { font-size: 1em; font-weight: bold; padding: 3px 12px; border-radius: 10px; margin-bottom: 8px; display: inline-block; }
+        .cargo-desc { font-size: 1.08em; color: #475569; margin-bottom: 12px; }
+        .cargo-empleados { font-size: 1.05em; color: #222; margin-bottom: 4px; }
+        .cargo-empleados ul { margin: 0 0 0 18px; }
+        .cargo-empleados li { margin-bottom: 2px; }
+        .divider { border-top: 2px solid #e2e8f0; margin: 18px 0 18px 0; }
         .footer { margin-top: 40px; text-align: right; font-size: 0.9em; color: #888; }
       </style>
     </head>
@@ -122,16 +125,17 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
           <div class="cargo-depto" style="background:{{ leyenda_colores.get(cargo.departamento, '#f1f5f9') }};">
             {{ cargo.departamento }}
           </div>
-          <div class="cargo-desc">{{ cargo.descripcion }}</div>
+          <div class="cargo-desc"><b>Descripción del Cargo:</b><br>{{ cargo.descripcion }}</div>
           <div class="cargo-empleados">
-            <b>Empleados:</b>
+            <b>Empleados en este cargo:</b>
             <ul>
               {% for emp in cargo.empleados %}
-                <li>{{ emp }}</li>
+                <li>👤 {{ emp }}</li>
               {% endfor %}
             </ul>
           </div>
         </div>
+        <div class="divider"></div>
       {% endfor %}
       <div class="footer">
         Documento generado automáticamente por IA y RRHH. SERVINET 2024.

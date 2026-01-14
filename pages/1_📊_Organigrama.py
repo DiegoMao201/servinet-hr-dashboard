@@ -280,7 +280,7 @@ with tab1:
             nombres = row['NOMBRE COMPLETO']
             correos = row['CORREO']
             celulares = row['CELULAR']
-            
+
             for i in range(len(nombres)):
                 lista_empleados.append({
                     "nombre": nombres[i],
@@ -602,7 +602,8 @@ def generar_descripcion_general_organigrama(cargos_info):
     prompt = f"""
 Eres consultor senior en RRHH. Resume y describe el organigrama de la empresa SERVINET, basado en los siguientes cargos y departamentos:
 {[ (c['cargo'], c['departamento'], len(c['empleados'])) for c in cargos_info ]}
-Incluye una visión estratégica, fortalezas y oportunidades de mejora.
+Organiza la información con títulos claros, viñetas y una estructura profesional. Usa listas para los cargos y empleados, y resalta los puntos clave. Incluye una visión estratégica, fortalezas y oportunidades de mejora.
+El resultado debe estar en formato Markdown o HTML simple, con títulos, subtítulos y listas ordenadas o con viñetas.
 """
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
