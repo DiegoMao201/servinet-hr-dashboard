@@ -14,7 +14,7 @@ except ImportError as e:
     st.stop()
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Organigrama Corporativo", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Organigrama Corporativo Pro", page_icon="🏢", layout="wide")
 
 # --- ESTILOS CSS ---
 st.markdown("""
@@ -56,33 +56,33 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- FUNCIONES GLOBALES (DEFINIDAS AL INICIO PARA EVITAR ERRORES) ---
+# --- FUNCIONES GLOBALES ---
 
 def wrap_text_node(text, width=20):
-    """Rompe líneas de texto largo automáticamente."""
+    """Rompe líneas de texto largo automáticamente para ajustar a la tarjeta."""
     if not isinstance(text, str): return ""
     return "\n".join(textwrap.wrap(text, width=width))
 
 def color_por_departamento(depto):
-    """Asigna color según el departamento. Definida globalmente."""
+    """Asigna color corporativo pastel según el departamento."""
     colores = {
-        "ADMINISTRATIVO": "#fde68a",
-        "OPERATIVO": "#a7f3d0",
-        "FINANZAS": "#fca5a5",
-        "COMERCIAL": "#93c5fd",
-        "RRHH": "#fbcfe8",
-        "TECNOLOGÍA": "#ddd6fe",
-        "LOGÍSTICA": "#bbf7d0",
-        "DIRECCIÓN": "#fef08a",
-        "JURÍDICO": "#f9a8d4",
-        "MARKETING": "#fdba74",
-        "OTROS": "#e0e7ef"
+        "ADMINISTRATIVO": "#fef9c3", # Amarillo pastel
+        "OPERATIVO": "#dcfce7",      # Verde pastel
+        "FINANZAS": "#fee2e2",       # Rojo pastel
+        "COMERCIAL": "#dbeafe",      # Azul pastel
+        "RRHH": "#fce7f3",           # Rosa pastel
+        "TECNOLOGÍA": "#f3e8ff",     # Morado pastel
+        "LOGÍSTICA": "#d1fae5",      # Esmeralda
+        "DIRECCIÓN": "#fef08a",      # Amarillo fuerte
+        "JURÍDICO": "#fbcfe8",       # Rosa
+        "MARKETING": "#ffedd5",      # Naranja
+        "OTROS": "#f1f5f9"           # Gris
     }
     if not depto:
-        return "#e0e7ef"
+        return "#f1f5f9"
     # Normalizar a mayúsculas y quitar espacios extra
     depto_norm = str(depto).strip().upper()
-    return colores.get(depto_norm, "#e0e7ef")
+    return colores.get(depto_norm, "#f1f5f9")
 
 # --- ENCABEZADO ---
 col_logo, col_title = st.columns([1, 6])
@@ -110,7 +110,7 @@ df_org_base = df.copy()
 if "ESTADO" in df_org_base.columns:
     df_org_base = df_org_base[~df_org_base["ESTADO"].str.upper().str.contains("RETIRADO", na=False)]
 
-# 2. Normalización de columnas clave para evitar errores de espacios
+# 2. Normalización de columnas clave
 df_org_base['NOMBRE COMPLETO'] = df_org_base['NOMBRE COMPLETO'].astype(str).str.strip()
 if 'JEFE_DIRECTO' in df_org_base.columns:
     df_org_base['JEFE_DIRECTO'] = df_org_base['JEFE_DIRECTO'].fillna("").astype(str).str.strip()
@@ -118,58 +118,39 @@ elif 'JEFE INMEDIATO' in df_org_base.columns:
     df_org_base['JEFE_DIRECTO'] = df_org_base['JEFE INMEDIATO'].fillna("").astype(str).str.strip()
 
 # 3. ALGORITMO ANTI-BUCLES (Ciclos Infinitos)
-# Esto detecta si A es jefe de B y B es jefe de A, y rompe el ciclo para que no falle el gráfico.
 employees_dict = dict(zip(df_org_base['NOMBRE COMPLETO'], df_org_base['JEFE_DIRECTO']))
 ciclos_detectados = []
 
 def detect_and_break_cycles(df_input):
-    """
-    Recorre la jerarquía para detectar ciclos. Si encuentra uno, 
-    elimina el jefe del empleado que cierra el ciclo temporalmente en el DF.
-    """
+    """Detecta y rompe ciclos jerárquicos para evitar crash."""
     df_clean = df_input.copy()
-    visited = set()
-    recursion_stack = set()
     
-    # Mapeo temporal para recorrido rápido
+    # Mapeo temporal
     adj_list = dict(zip(df_clean['NOMBRE COMPLETO'], df_clean['JEFE_DIRECTO']))
-    
-    # Nodos que hay que limpiar (romper vínculo)
     links_to_break = []
 
     def visit(node, path):
         if node in path:
-            # ¡Ciclo detectado!
-            ciclos_detectados.append(f"{node} <-> {adj_list.get(node)}")
             links_to_break.append(node)
             return
-        
         if node not in adj_list or not adj_list[node]:
-            return # Fin de la línea (Gerente General o Huérfano)
-
+            return 
         path.add(node)
-        jefe = adj_list[node]
-        visit(jefe, path)
+        visit(adj_list[node], path)
         path.remove(node)
 
-    # Ejecutar detección
     for emp in df_clean['NOMBRE COMPLETO']:
         visit(emp, set())
 
-    # Romper vínculos en el DataFrame
     if links_to_break:
-        # Quitamos duplicados
         unique_breaks = list(set(links_to_break))
-        st.warning(f"⚠️ **Alerta de Bucle Infinito:** Se detectó que los siguientes empleados se reportan mutuamente o en círculo. Se ha roto el vínculo visualmente para mostrar el gráfico. Por favor corrige en la base de datos: {', '.join(unique_breaks)}")
-        
+        st.warning(f"⚠️ **Alerta:** Se rompieron vínculos cíclicos para visualizar: {', '.join(unique_breaks)}")
         for name in unique_breaks:
             df_clean.loc[df_clean['NOMBRE COMPLETO'] == name, 'JEFE_DIRECTO'] = ""
             
     return df_clean
 
-# Aplicamos la limpieza de ciclos
 df_org_final = detect_and_break_cycles(df_org_base)
-
 
 # Listas para filtros (Tab 2)
 areas = sorted(df['AREA'].dropna().unique()) if 'AREA' in df.columns else []
@@ -181,38 +162,40 @@ cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 tab1, tab2 = st.tabs(["🌳 Organigrama Interactivo", "👤 Ficha Técnica & Edición"])
 
 # ==============================================================================
-# TAB 1: ORGANIGRAMA MEJORADO
+# TAB 1: ORGANIGRAMA MEJORADO (VERSIÓN PRO)
 # ==============================================================================
 with tab1:
-    st.markdown("### 🔹 Mapa Estructural de la Compañía")
-    
-    # 4. Construcción del JSON Jerárquico
+    st.markdown("### 🔹 Mapa Estructural Corporativo")
+    st.info("💡 **Tip:** Usa la rueda del mouse para Zoom. Arrastra para moverte. Haz clic en las flechas para expandir/contraer ramas.")
+
+    # 4. Construcción del JSON Jerárquico Robusto
     def build_hierarchy_json_v2(df_in):
         df_in = df_in.fillna("")
         
-        # Mapeo de Nombre a Cédula
+        # Diccionarios de referencia
         nombre_to_id = {row['NOMBRE COMPLETO']: str(row['CEDULA']).strip() for _, row in df_in.iterrows()}
         
         nodes = {}
         
-        # Crear Nodos
+        # Crear Nodos con Estilo Mejorado
         for _, row in df_in.iterrows():
             emp_id = str(row['CEDULA']).strip()
             nombre_actual = row['NOMBRE COMPLETO']
             
             # Buscar ID del Jefe
-            jefe_nombre = row['JEFE_DIRECTO'] # Ya normalizado arriba
+            jefe_nombre = row['JEFE_DIRECTO']
             parent_id = nombre_to_id.get(jefe_nombre, None)
             
-            # Formateo visual
+            # Formateo visual estricto para que quepa en la tarjeta fija
             nombre_display = wrap_text_node(nombre_actual, width=18)
             cargo_display = wrap_text_node(row['CARGO'], width=22)
             
-            # Label
-            formatted_label = f"{{name|{nombre_display}}}\n{{hr|}}\n{{role|{cargo_display}}}"
+            # Label con Rich Text de Echarts (Estilo CSS interno)
+            # {title|...} es el nombre, {subtitle|...} es el cargo
+            formatted_label = f"{{title|{nombre_display}}}\n{{hr|}}\n{{subtitle|{cargo_display}}}"
             
-            # Color
             depto = row.get('DEPARTAMENTO', 'OTROS')
+            bg_color = color_por_departamento(depto)
             
             nodes[emp_id] = {
                 "name": formatted_label,
@@ -225,65 +208,65 @@ with tab1:
                     "email": row.get('CORREO', ''),
                     "celular": row.get('CELULAR', '')
                 },
-                "itemStyle": {"color": color_por_departamento(depto)},
+                # Estilo Específico del Nodo
+                "itemStyle": {
+                    "color": bg_color,
+                    "borderColor": "#94a3b8",
+                    "borderWidth": 1,
+                    "borderRadius": 4,
+                    "shadowBlur": 5,
+                    "shadowColor": "rgba(0,0,0,0.1)"
+                },
                 "_id": emp_id,
                 "_parent_id": parent_id
             }
 
-        # Armar el árbol (Forest)
+        # Armar el árbol
         forest = []
         for emp_id, node in nodes.items():
             parent_id = node.pop("_parent_id")
-            
-            # Evitar auto-referencia
-            if parent_id == emp_id:
-                parent_id = None
+            if parent_id == emp_id: parent_id = None # Evitar auto-referencia simple
 
             if parent_id and parent_id in nodes:
                 nodes[parent_id]["children"].append(node)
             else:
-                # Si no tiene padre en el mapa, es una raíz (Gerente General o Huérfano)
                 forest.append(node)
         
-        # Retornar Raíz
+        # Manejo de Raíces Múltiples (Crear un nodo ficticio "Junta Directiva" o similar si hay varios jefes supremos)
         if len(forest) == 1:
             return forest[0]
         else:
-            # Si hay múltiples raíces (ej: Gerente + Huérfanos), creamos un nodo ficticio contenedor
-            # OJO: Si el gerente es uno de ellos, intentaremos ponerlo primero.
             return {
-                "name": "{name|DIRECCIÓN GENERAL}\n{hr|}\n{role|ESTRUCTURA}",
+                "name": "{title|DIRECCIÓN GENERAL}\n{hr|}\n{subtitle|ESTRUCTURA}",
                 "children": forest,
                 "tooltip_info": {"nombre_real": "Agrupador", "area": "-", "sede": "-", "email": "", "celular": ""},
-                "itemStyle": {"color": "#0f172a", "borderColor": "#0f172a"}
+                "itemStyle": {"color": "#1e293b", "borderColor": "#0f172a"},
+                "label": {"color": "white"}
             }
 
     try:
         tree_data = build_hierarchy_json_v2(df_org_final)
         
-        # --- CONFIGURACIÓN ECHARTS ---
+        # --- CONFIGURACIÓN ECHARTS PROFESIONAL ---
         option = {
             "tooltip": {
                 "trigger": 'item',
                 "triggerOn": 'mousemove',
-                "padding": 0,
+                "enterable": True, # Permite entrar al tooltip
                 "formatter": """
                     function(params) {
                         var info = params.data.tooltip_info;
                         if (!info) return '';
                         return `
-                            <div style="font-family: 'Segoe UI', sans-serif; width: 220px; border-radius: 6px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: white;">
-                                <div style="background: #3b82f6; color: white; padding: 10px 15px; font-weight: bold; font-size: 14px;">
-                                    ${info.nombre_real}
-                                </div>
-                                <div style="padding: 15px; color: #334155; font-size: 12px; line-height: 1.6;">
-                                    <strong style="color: #1e293b;">Cargo:</strong> ${params.value}<br>
-                                    <strong style="color: #1e293b;">Área:</strong> ${info.area}<br>
-                                    <strong style="color: #1e293b;">Sede:</strong> ${info.sede}<br>
-                                    <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 8px;">
-                                        ${info.email ? `📧 ${info.email}<br>` : ''}
-                                        ${info.celular ? `📱 ${info.celular}` : ''}
-                                    </div>
+                            <div style="font-family: sans-serif; min-width: 200px; padding: 10px; border-radius: 4px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                                <h4 style="margin:0 0 5px 0; color: #1e3a8a; border-bottom: 2px solid #3b82f6; padding-bottom: 5px;">${info.nombre_real}</h4>
+                                <div style="font-size: 12px; color: #333; line-height: 1.5;">
+                                    <strong>Cargo:</strong> ${params.value}<br>
+                                    <strong>Área:</strong> ${info.area}<br>
+                                    <strong>Sede:</strong> ${info.sede}<br>
+                                    <hr style="margin: 5px 0; border: 0; border-top: 1px solid #eee;">
+                                    ${info.email ? `📧 ${info.email}<br>` : ''}
+                                    ${info.celular ? `📱 ${info.celular}` : ''}
                                 </div>
                             </div>
                         `;
@@ -294,75 +277,69 @@ with tab1:
                 {
                     "type": "tree",
                     "data": [tree_data],
-                    "left": '2%', 
-                    "right": '2%', 
-                    "top": '5%', 
-                    "bottom": '5%',
-                    "orient": 'TB',  # TB = Top to Bottom
-                    "symbol": 'rect',
-                    "symbolSize": [160, 75],
-                    "roam": True,
-                    "initialTreeDepth": 2,
-                    "itemStyle": {
-                        "color": "#ffffff",
-                        "borderColor": "#3b82f6",
-                        "borderWidth": 2,
-                        "borderRadius": 6,
-                        "shadowBlur": 5,
-                        "shadowColor": "rgba(0,0,0,0.1)"
-                    },
+                    
+                    # --- DISEÑO Y DISTRIBUCIÓN ---
+                    "left": '5%',
+                    "right": '5%',
+                    "top": '80px',     # Espacio arriba
+                    "bottom": '80px',  # Espacio abajo
+                    
+                    "orient": 'TB',    # Top to Bottom (Estándar)
+                    "layout": 'orthogonal', # CLAVE: Distribución limpia
+                    
+                    "symbol": 'rect',  # Tarjetas rectangulares
+                    "symbolSize": [190, 75], # Tamaño FIJO de la tarjeta (Ancho, Alto)
+                    
+                    "roam": True, # Permite zoom y paneo
+                    "initialTreeDepth": 2, # Cuántos niveles mostrar al inicio (Cambia a -1 para ver todo)
+                    
+                    # --- ESTILO DE LÍNEAS (CONECTORES) ---
+                    "edgeShape": "polyline", # CLAVE: Líneas rectas tipo Visio
+                    "edgeForkPosition": "60%", # Donde se divide la línea
                     "lineStyle": {
-                        "color": "#94a3b8",
-                        "width": 1.5,
-                        "curveness": 0.5 
+                        "color": "#64748b",
+                        "width": 2,
+                        "curveness": 0 # Sin curvas
                     },
+                    
+                    # --- ESTILO DE ETIQUETAS (TEXTO DENTRO DEL NODO) ---
                     "label": {
                         "show": True,
                         "position": 'inside',
-                        "color": '#333',
+                        "color": '#1e293b',
+                        "rotate": 0,
+                        "verticalAlign": 'middle',
+                        "align": 'center',
+                        "fontSize": 11,
+                        
+                        # Definición de estilos ricos
                         "rich": {
-                            "name": {
-                                "color": "#1e293b",
+                            "title": {
+                                "color": "#0f172a",
                                 "fontSize": 12,
                                 "fontWeight": "bold",
                                 "align": "center",
                                 "lineHeight": 14,
-                                "padding": [0, 0, 4, 0]
+                                "padding": [0, 5, 0, 5]
                             },
                             "hr": {
-                                "borderColor": "#e2e8f0",
+                                "borderColor": "#cbd5e1",
                                 "width": "100%",
                                 "borderWidth": 0.5,
                                 "height": 0,
-                                "align": "center"
+                                "margin": [5, 0, 5, 0]
                             },
-                            "role": {
-                                "color": "#64748b",
+                            "subtitle": {
+                                "color": "#475569",
                                 "fontSize": 10,
                                 "align": "center",
                                 "lineHeight": 12,
-                                "padding": [4, 0, 0, 0]
+                                "padding": [2, 0, 0, 0]
                             }
                         }
                     },
-                    "leaves": {
-                        "label": {
-                            "position": 'inside',
-                            "verticalAlign": 'middle',
-                            "align": 'center'
-                        },
-                        "itemStyle": {
-                             "color": "#f0f9ff", 
-                             "borderColor": "#60a5fa"
-                        }
-                    },
-                    "emphasis": {
-                        "focus": 'descendant',
-                        "itemStyle": {
-                            "shadowBlur": 10,
-                            "shadowColor": "rgba(59, 130, 246, 0.5)"
-                        }
-                    },
+                    
+                    # --- COMPORTAMIENTO ---
                     "expandAndCollapse": True,
                     "animationDuration": 550,
                     "animationDurationUpdate": 750
@@ -370,48 +347,30 @@ with tab1:
             ]
         }
         
-        st.info("💡 Usa la rueda del mouse para hacer Zoom. Arrastra para moverte.")
-        st_echarts(options=option, height="850px")
+        # RENDERIZADO CON ALTURA AUMENTADA PARA EVITAR SOLAPAMIENTO
+        st_echarts(options=option, height="1200px") # Altura fija grande
 
     except Exception as e:
         st.error(f"Error crítico al generar organigrama: {e}")
 
-    # --- LEYENDA DE COLORES (Ahora sí funciona porque la función es global) ---
-    st.markdown("#### 🎨 Leyenda de colores por departamento")
-    leyenda_colores = {
-        "ADMINISTRATIVO": "#fde68a",
-        "OPERATIVO": "#a7f3d0",
-        "FINANZAS": "#fca5a5",
-        "COMERCIAL": "#93c5fd",
-        "RRHH": "#fbcfe8",
-        "TECNOLOGÍA": "#ddd6fe",
-        "LOGÍSTICA": "#bbf7d0",
-        "DIRECCIÓN": "#fef08a",
-        "JURÍDICO": "#f9a8d4",
-        "MARKETING": "#fdba74",
-        "OTROS": "#e0e7ef"
-    }
+    # Leyenda Estática
+    st.markdown("---")
+    st.markdown("#### 🎨 Departamentos")
     
-    html_leyenda = ""
-    for dept, color in leyenda_colores.items():
-        html_leyenda += f"<span style='display:inline-block;width:15px;height:15px;background:{color};border-radius:3px;margin-right:5px;border:1px solid #ccc;'></span><span style='margin-right:15px;font-size:14px;'>{dept}</span>"
-    
-    st.markdown(html_leyenda, unsafe_allow_html=True)
-
-    # --- ADVERTENCIA DE HUÉRFANOS ---
-    if "JEFE_DIRECTO" in df_org_final.columns:
-        # Buscamos jefes que están escritos en la col JEFE pero no existen como empleados
-        todos_empleados = set(df_org_final["NOMBRE COMPLETO"].unique())
-        jefes_citados = set(df_org_final["JEFE_DIRECTO"].unique())
-        # Removemos vacíos
-        jefes_citados.discard("")
-        
-        huerfanos_de_jefe = jefes_citados - todos_empleados
-        if huerfanos_de_jefe:
-            st.error(f"⚠️ **Error de Datos:** Hay empleados reportando a jefes que NO existen en la base de datos (revisa ortografía): {', '.join(huerfanos_de_jefe)}")
+    cols_leg = st.columns(6)
+    items_leg = list(leyenda_colores.items())
+    for i, (dept, color) in enumerate(items_leg):
+        col_idx = i % 6
+        with cols_leg[col_idx]:
+            st.markdown(
+                f"<div style='display:flex; align-items:center; margin-bottom:5px;'>"
+                f"<div style='width:15px; height:15px; background:{color}; border:1px solid #ccc; margin-right:8px; border-radius:3px;'></div>"
+                f"<span style='font-size:12px;'>{dept}</span></div>", 
+                unsafe_allow_html=True
+            )
 
 # ==============================================================================
-# TAB 2: FICHA DE EMPLEADO & EDICIÓN
+# TAB 2: FICHA DE EMPLEADO & EDICIÓN (MANTENIDO IGUAL PERO ROBUSTO)
 # ==============================================================================
 with tab2:
     def actualizar_empleado_google_sheets(nombre, cedula, cargo, area, departamento, sede, jefe, correo, celular, centro_trabajo):
@@ -479,15 +438,16 @@ with tab2:
         # COLUMNA IZQUIERDA: TARJETA VISUAL
         with col_card_izq:
             st.markdown(f"""
-            <div style="background-color: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center;">
+            <div style="background-color: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                 <div style="font-size: 64px; margin-bottom: 10px;">👤</div>
                 <h3 style="margin:0; color: #1e293b; font-size: 20px;">{seleccion}</h3>
                 <p style="color: #3b82f6; font-weight: 600; font-size: 14px; margin-bottom: 20px;">{datos.get('CARGO', 'Sin Cargo')}</p>
                 <div style="text-align: left; font-size: 13px; color: #475569; padding-top: 15px; border-top: 1px solid #f1f5f9;">
-                    <p style="margin: 5px 0;"><b>📧 Email:</b> {datos.get('CORREO', '--')}</p>
-                    <p style="margin: 5px 0;"><b>📱 Celular:</b> {datos.get('CELULAR', '--')}</p>
-                    <p style="margin: 5px 0;"><b>📍 Sede:</b> {datos.get('SEDE', '--')}</p>
-                    <p style="margin: 5px 0;"><b>🏢 Área:</b> {datos.get('AREA', '--')}</p>
+                    <p style="margin: 8px 0;"><b>📧 Email:</b> {datos.get('CORREO', '--')}</p>
+                    <p style="margin: 8px 0;"><b>📱 Celular:</b> {datos.get('CELULAR', '--')}</p>
+                    <p style="margin: 8px 0;"><b>📍 Sede:</b> {datos.get('SEDE', '--')}</p>
+                    <p style="margin: 8px 0;"><b>🏢 Área:</b> {datos.get('AREA', '--')}</p>
+                    <p style="margin: 8px 0;"><b>🎯 Jefe:</b> {datos.get('JEFE_DIRECTO', 'N/A')}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
