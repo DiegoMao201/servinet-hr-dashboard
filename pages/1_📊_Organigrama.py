@@ -127,7 +127,6 @@ with tab1:
             "CORREO": list,
             "CELULAR": list,
             "JEFE_DIRECTO": lambda x: x.mode()[0] if not x.mode().empty else "",
-            "AREA": lambda x: x.mode()[0] if not x.mode().empty else "",
         })
     )
     # Simula jerarquía simple: todos dependen de "DIRECCIÓN GENERAL"
@@ -141,7 +140,6 @@ with tab1:
                 "CORREO": [""],
                 "CELULAR": [""],
                 "JEFE_DIRECTO": "",
-                "AREA": "",
                 "JEFE_CARGO_REAL": ""
             }]),
             df_cargos_final
@@ -176,7 +174,7 @@ with tab1:
                 "tooltip_info": {
                     "cargo": cargo_id,
                     "departamento": depto,
-                    "area": row.get('AREA', ''),
+                    "area": "",  # <--- No usamos 'AREA'
                     "empleados": lista_empleados
                 },
                 "itemStyle": {

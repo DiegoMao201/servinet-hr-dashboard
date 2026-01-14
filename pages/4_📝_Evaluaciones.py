@@ -8,8 +8,11 @@ st.set_page_config(page_title="Evaluaciones 360", page_icon="📝", layout="wide
 st.image("logo_servinet.jpg", width=120)
 st.title("📝 Evaluaciones de Desempeño 360")
 
-df_eval = get_evaluaciones()
-df_emp = get_employees()
+@st.cache_data(ttl=900)
+def get_data():
+    return get_evaluaciones(), get_employees()
+
+df_eval, df_emp = get_data()
 
 if df_eval.empty or df_emp.empty:
     st.warning("No hay datos de evaluaciones o empleados.")

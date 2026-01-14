@@ -12,16 +12,19 @@ sheet = spreadsheet.worksheet("3_capacitaciones")
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 
-st.dataframe(df)
-st.markdown("### Registrar nueva capacitación")
-nombre = st.selectbox("Empleado", df["NOMBRE"].unique())
-tema = st.text_input("Tema")
-estado = st.selectbox("Estado", ["Pendiente", "Realizada"])
-if st.button("Registrar capacitación"):
-    import datetime
-    cargo = df[df["NOMBRE"] == nombre]["CARGO"].iloc[0]
-    sheet.append_row([
-        nombre, cargo, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        tema, estado, ""
-    ])
-    st.success("Capacitación registrada.")
+if df.empty or "NOMBRE" not in df.columns:
+    st.warning("No hay datos de capacitaciones registrados.")
+else:
+    st.dataframe(df)
+    st.markdown("### Registrar nueva capacitación")
+    nombre = st.selectbox("Empleado", df["NOMBRE"].unique())
+    tema = st.text_input("Tema")
+    estado = st.selectbox("Estado", ["Pendiente", "Realizada"])
+    if st.button("Registrar capacitación"):
+        import datetime
+        cargo = df[df["NOMBRE"] == nombre]["CARGO"].iloc[0] if "CARGO" in df.columns else ""
+        sheet.append_row([
+            nombre, cargo, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            tema, estado, ""
+        ])
+        st.success("Capacitación registrada.")
