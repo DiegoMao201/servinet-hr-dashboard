@@ -14,6 +14,8 @@ try:
         upload_organigrama_to_drive,
         find_organigrama_in_drive,
         download_organigrama_from_drive,
+        find_manual_in_drive,           # <-- AGREGA ESTA LÍNEA
+        download_manual_from_drive      # <-- Y ESTA
     )
     from modules.ai_brain import client as openai_client
     from modules.pdf_generator import export_organigrama_pdf
@@ -400,7 +402,7 @@ with tab1:
                     "initialTreeDepth": 2,    # Un poco más expandido
                     "expandAndCollapse": True,
                     "edgeShape": "polyline",
-                    "edgeForkPosition": "50%",  # Más compacto
+                    "edgeForkPosition": "50%"  # Más compacto
                     "lineStyle": {
                         "color": "#3b82f6",
                         "width": 2,
@@ -437,6 +439,21 @@ with tab1:
         st.error(f"Error crítico al generar organigrama por cargos: {e}")
 
     # Leyenda de colores eliminada para profesionalismo empresarial
+
+    # --- ARCHIVO EXISTENTE ---
+    st.markdown("### 📂 Organigrama PDF Guardado")
+    organigrama_file_id = find_organigrama_in_drive(manuals_folder_id)
+    if organigrama_file_id:
+        pdf_bytes = download_organigrama_from_drive(organigrama_file_id)
+        st.download_button(
+            label="📥 Descargar Organigrama PDF Guardado",
+            data=pdf_bytes,
+            file_name="Organigrama_Cargos.pdf",
+            mime="application/pdf"
+        )
+        st.info("Mostrando organigrama guardado. Si deseas actualizarlo, usa el botón de arriba.")
+    else:
+        st.warning("No hay organigrama guardado. Genera uno para almacenarlo en Drive.")
 
 # ==============================================================================
 # TAB 2: FICHA DE EMPLEADO & EDICIÓN (SIN CAMBIOS, NECESARIO PARA FUNCIONALIDAD)
@@ -537,14 +554,14 @@ with tab2:
             st.write(" ")
             st.markdown("##### 📄 Manual de Funciones")
             with st.spinner("Buscando manual de funciones..."):
-                manuals_folder_id = get_or_create_manuals_folder()
-                manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
+                cargo_actual = datos.get("CARGO", "")
+                manual_file_id = find_manual_in_drive(cargo_actual, manuals_folder_id)
             if manual_file_id:
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button(
                     label="📥 Descargar Manual de Funciones PDF",
                     data=pdf_bytes,
-                    file_name=f"Manual_{datos.get('CARGO', '').replace(' ', '_').upper()}.pdf",
+                    file_name=f"Manual_{cargo_actual.replace(' ', '_').upper()}.pdf",
                     mime="application/pdf"
                 )
                 st.info("Manual de funciones disponible.")
