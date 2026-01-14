@@ -1,16 +1,22 @@
 import streamlit as st
 import pandas as pd
-# Asumo que estos módulos existen en tu carpeta local como indicaste en tu código original
-from modules.database import get_employees, connect_to_drive, SPREADSHEET_ID
-from modules.drive_manager import get_or_create_manuals_folder, find_manual_in_drive, download_manual_from_drive
 import datetime
+import textwrap
 from streamlit_echarts import st_echarts 
-import textwrap # Nueva librería estándar para ajustar texto largo
+
+# --- IMPORTACIÓN DE MÓDULOS LOCALES ---
+# Asegúrate de que estos archivos existen en tu carpeta modules/
+try:
+    from modules.database import get_employees, connect_to_drive, SPREADSHEET_ID
+    from modules.drive_manager import get_or_create_manuals_folder, find_manual_in_drive, download_manual_from_drive
+except ImportError as e:
+    st.error(f"Error al importar módulos locales: {e}. Verifica que la carpeta 'modules' y los archivos existan.")
+    st.stop()
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Organigrama Corporativo", page_icon="🏢", layout="wide")
 
-# --- ESTILOS CSS MEJORADOS ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .block-container {padding-top: 1rem; padding-bottom: 2rem;}
@@ -50,10 +56,39 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- FUNCIONES GLOBALES (DEFINIDAS AL INICIO PARA EVITAR ERRORES) ---
+
+def wrap_text_node(text, width=20):
+    """Rompe líneas de texto largo automáticamente."""
+    if not isinstance(text, str): return ""
+    return "\n".join(textwrap.wrap(text, width=width))
+
+def color_por_departamento(depto):
+    """Asigna color según el departamento. Definida globalmente."""
+    colores = {
+        "ADMINISTRATIVO": "#fde68a",
+        "OPERATIVO": "#a7f3d0",
+        "FINANZAS": "#fca5a5",
+        "COMERCIAL": "#93c5fd",
+        "RRHH": "#fbcfe8",
+        "TECNOLOGÍA": "#ddd6fe",
+        "LOGÍSTICA": "#bbf7d0",
+        "DIRECCIÓN": "#fef08a",
+        "JURÍDICO": "#f9a8d4",
+        "MARKETING": "#fdba74",
+        "OTROS": "#e0e7ef"
+    }
+    if not depto:
+        return "#e0e7ef"
+    # Normalizar a mayúsculas y quitar espacios extra
+    depto_norm = str(depto).strip().upper()
+    return colores.get(depto_norm, "#e0e7ef")
+
 # --- ENCABEZADO ---
 col_logo, col_title = st.columns([1, 6])
 with col_logo:
     try:
+        # Intenta cargar logo si existe, si no usa emoji
         st.image("logo_servinet.jpg", width=110)
     except:
         st.write("🏢")
@@ -69,11 +104,72 @@ if df.empty:
     st.error("❌ No se pudieron cargar los datos de empleados. Verifica la conexión a Google Sheets y el módulo database.")
     st.stop()
 
-# --- PROCESAMIENTO DE DATOS ---
-# Filtro base: Solo activos (excluye retirados)
+# --- PROCESAMIENTO Y LIMPIEZA DE DATOS ---
+# 1. Copia base y exclusión de retirados
 df_org_base = df.copy()
 if "ESTADO" in df_org_base.columns:
     df_org_base = df_org_base[~df_org_base["ESTADO"].str.upper().str.contains("RETIRADO", na=False)]
+
+# 2. Normalización de columnas clave para evitar errores de espacios
+df_org_base['NOMBRE COMPLETO'] = df_org_base['NOMBRE COMPLETO'].astype(str).str.strip()
+if 'JEFE_DIRECTO' in df_org_base.columns:
+    df_org_base['JEFE_DIRECTO'] = df_org_base['JEFE_DIRECTO'].fillna("").astype(str).str.strip()
+elif 'JEFE INMEDIATO' in df_org_base.columns:
+    df_org_base['JEFE_DIRECTO'] = df_org_base['JEFE INMEDIATO'].fillna("").astype(str).str.strip()
+
+# 3. ALGORITMO ANTI-BUCLES (Ciclos Infinitos)
+# Esto detecta si A es jefe de B y B es jefe de A, y rompe el ciclo para que no falle el gráfico.
+employees_dict = dict(zip(df_org_base['NOMBRE COMPLETO'], df_org_base['JEFE_DIRECTO']))
+ciclos_detectados = []
+
+def detect_and_break_cycles(df_input):
+    """
+    Recorre la jerarquía para detectar ciclos. Si encuentra uno, 
+    elimina el jefe del empleado que cierra el ciclo temporalmente en el DF.
+    """
+    df_clean = df_input.copy()
+    visited = set()
+    recursion_stack = set()
+    
+    # Mapeo temporal para recorrido rápido
+    adj_list = dict(zip(df_clean['NOMBRE COMPLETO'], df_clean['JEFE_DIRECTO']))
+    
+    # Nodos que hay que limpiar (romper vínculo)
+    links_to_break = []
+
+    def visit(node, path):
+        if node in path:
+            # ¡Ciclo detectado!
+            ciclos_detectados.append(f"{node} <-> {adj_list.get(node)}")
+            links_to_break.append(node)
+            return
+        
+        if node not in adj_list or not adj_list[node]:
+            return # Fin de la línea (Gerente General o Huérfano)
+
+        path.add(node)
+        jefe = adj_list[node]
+        visit(jefe, path)
+        path.remove(node)
+
+    # Ejecutar detección
+    for emp in df_clean['NOMBRE COMPLETO']:
+        visit(emp, set())
+
+    # Romper vínculos en el DataFrame
+    if links_to_break:
+        # Quitamos duplicados
+        unique_breaks = list(set(links_to_break))
+        st.warning(f"⚠️ **Alerta de Bucle Infinito:** Se detectó que los siguientes empleados se reportan mutuamente o en círculo. Se ha roto el vínculo visualmente para mostrar el gráfico. Por favor corrige en la base de datos: {', '.join(unique_breaks)}")
+        
+        for name in unique_breaks:
+            df_clean.loc[df_clean['NOMBRE COMPLETO'] == name, 'JEFE_DIRECTO'] = ""
+            
+    return df_clean
+
+# Aplicamos la limpieza de ciclos
+df_org_final = detect_and_break_cycles(df_org_base)
+
 
 # Listas para filtros (Tab 2)
 areas = sorted(df['AREA'].dropna().unique()) if 'AREA' in df.columns else []
@@ -85,93 +181,87 @@ cargos = sorted(df['CARGO'].dropna().unique()) if 'CARGO' in df.columns else []
 tab1, tab2 = st.tabs(["🌳 Organigrama Interactivo", "👤 Ficha Técnica & Edición"])
 
 # ==============================================================================
-# TAB 1: ORGANIGRAMA MEJORADO (DISEÑO PROFESIONAL)
+# TAB 1: ORGANIGRAMA MEJORADO
 # ==============================================================================
 with tab1:
     st.markdown("### 🔹 Mapa Estructural de la Compañía")
-    st.info("💡 **Instrucciones:** Usa la rueda del mouse para hacer Zoom. Arrastra el lienzo para moverte. Haz clic en los nodos para ver detalles.")
-
-    def wrap_text_node(text, width=20):
-        """Función auxiliar para romper líneas de texto largo automáticamente"""
-        if not isinstance(text, str): return ""
-        return "\n".join(textwrap.wrap(text, width=width))
-
+    
+    # 4. Construcción del JSON Jerárquico
     def build_hierarchy_json_v2(df_in):
-        """
-        Versión optimizada para layouts verticales.
-        Estructura los datos para ECharts Tree.
-        """
         df_in = df_in.fillna("")
         
-        # Mapeo de Nombre a Cédula (Normalizamos a string para evitar errores de tipo)
-        nombre_to_id = {row['NOMBRE COMPLETO'].strip(): str(row['CEDULA']).strip() for _, row in df_in.iterrows()}
+        # Mapeo de Nombre a Cédula
+        nombre_to_id = {row['NOMBRE COMPLETO']: str(row['CEDULA']).strip() for _, row in df_in.iterrows()}
         
         nodes = {}
         
-        # 1. Crear Nodos
+        # Crear Nodos
         for _, row in df_in.iterrows():
             emp_id = str(row['CEDULA']).strip()
+            nombre_actual = row['NOMBRE COMPLETO']
             
             # Buscar ID del Jefe
-            jefe_nombre = (row.get('JEFE_DIRECTO', '') or row.get('JEFE INMEDIATO', '')).strip()
+            jefe_nombre = row['JEFE_DIRECTO'] # Ya normalizado arriba
             parent_id = nombre_to_id.get(jefe_nombre, None)
             
-            # Formateo visual del texto (Rich Text)
-            nombre_display = wrap_text_node(row['NOMBRE COMPLETO'], width=18)
+            # Formateo visual
+            nombre_display = wrap_text_node(nombre_actual, width=18)
             cargo_display = wrap_text_node(row['CARGO'], width=22)
             
-            # Formato ECharts Rich Text: {styleName|Text}
+            # Label
             formatted_label = f"{{name|{nombre_display}}}\n{{hr|}}\n{{role|{cargo_display}}}"
             
-            # Nueva línea: Obtener departamento para el color
+            # Color
             depto = row.get('DEPARTAMENTO', 'OTROS')
+            
             nodes[emp_id] = {
                 "name": formatted_label,
                 "value": row['CARGO'],
                 "children": [],
                 "tooltip_info": {
-                    "nombre_real": row['NOMBRE COMPLETO'],
+                    "nombre_real": nombre_actual,
                     "area": row.get('AREA', 'N/A'),
                     "sede": row.get('SEDE', 'N/A'),
                     "email": row.get('CORREO', ''),
                     "celular": row.get('CELULAR', '')
                 },
                 "itemStyle": {"color": color_por_departamento(depto)},
-                # IDs internos para lógica
                 "_id": emp_id,
                 "_parent_id": parent_id
             }
 
-        # 2. Construir Árbol (Forest)
+        # Armar el árbol (Forest)
         forest = []
         for emp_id, node in nodes.items():
             parent_id = node.pop("_parent_id")
             
-            # Evitar auto-referencia (si alguien se puso a sí mismo de jefe por error)
+            # Evitar auto-referencia
             if parent_id == emp_id:
                 parent_id = None
 
             if parent_id and parent_id in nodes:
                 nodes[parent_id]["children"].append(node)
             else:
+                # Si no tiene padre en el mapa, es una raíz (Gerente General o Huérfano)
                 forest.append(node)
         
-        # 3. Retornar Raíz Única
+        # Retornar Raíz
         if len(forest) == 1:
             return forest[0]
         else:
-            # Si hay múltiples raíces (islas), creamos un nodo padre ficticio
+            # Si hay múltiples raíces (ej: Gerente + Huérfanos), creamos un nodo ficticio contenedor
+            # OJO: Si el gerente es uno de ellos, intentaremos ponerlo primero.
             return {
-                "name": "{name|DIRECCIÓN GENERAL}\n{hr|}\n{role|SERVINET}",
+                "name": "{name|DIRECCIÓN GENERAL}\n{hr|}\n{role|ESTRUCTURA}",
                 "children": forest,
-                "tooltip_info": {"nombre_real": "SERVINET", "area": "Global", "sede": "-", "email": "", "celular": ""},
+                "tooltip_info": {"nombre_real": "Agrupador", "area": "-", "sede": "-", "email": "", "celular": ""},
                 "itemStyle": {"color": "#0f172a", "borderColor": "#0f172a"}
             }
 
     try:
-        tree_data = build_hierarchy_json_v2(df_org_base)
+        tree_data = build_hierarchy_json_v2(df_org_final)
         
-        # --- CONFIGURACIÓN ECHARTS (EL DISEÑO) ---
+        # --- CONFIGURACIÓN ECHARTS ---
         option = {
             "tooltip": {
                 "trigger": 'item',
@@ -204,34 +294,28 @@ with tab1:
                 {
                     "type": "tree",
                     "data": [tree_data],
-                    "left": '5%', 
-                    "right": '5%', 
+                    "left": '2%', 
+                    "right": '2%', 
                     "top": '5%', 
                     "bottom": '5%',
-                    "orient": 'TB',  # TB = Top to Bottom (Organigrama Vertical Clásico)
-                    
-                    "symbol": 'rect', # Nodos rectangulares
-                    "symbolSize": [160, 75], # [Ancho, Alto] - Ajustado para que quepa el texto
-                    
-                    "roam": True, # Permite zoom y mover
-                    "initialTreeDepth": 2, # Niveles abiertos al iniciar
-                    
+                    "orient": 'TB',  # TB = Top to Bottom
+                    "symbol": 'rect',
+                    "symbolSize": [160, 75],
+                    "roam": True,
+                    "initialTreeDepth": 2,
                     "itemStyle": {
-                        "color": "#ffffff", # Fondo blanco del nodo
-                        "borderColor": "#3b82f6", # Borde azul
+                        "color": "#ffffff",
+                        "borderColor": "#3b82f6",
                         "borderWidth": 2,
                         "borderRadius": 6,
                         "shadowBlur": 5,
                         "shadowColor": "rgba(0,0,0,0.1)"
                     },
-                    
                     "lineStyle": {
                         "color": "#94a3b8",
                         "width": 1.5,
-                        "curveness": 0.5 # Líneas curvas suaves. Cambia a 0 para rectas ortogonales
-                        # Para líneas ortogonales (rectas 90 grados), usa edgeShape: 'polyline'
+                        "curveness": 0.5 
                     },
-                    
                     "label": {
                         "show": True,
                         "position": 'inside',
@@ -261,7 +345,6 @@ with tab1:
                             }
                         }
                     },
-                    
                     "leaves": {
                         "label": {
                             "position": 'inside',
@@ -269,19 +352,17 @@ with tab1:
                             "align": 'center'
                         },
                         "itemStyle": {
-                             "color": "#f0f9ff", # Azul muy claro para empleados base
+                             "color": "#f0f9ff", 
                              "borderColor": "#60a5fa"
                         }
                     },
-                    
                     "emphasis": {
-                        "focus": 'descendant', # Al pasar mouse, resalta la rama completa
+                        "focus": 'descendant',
                         "itemStyle": {
                             "shadowBlur": 10,
                             "shadowColor": "rgba(59, 130, 246, 0.5)"
                         }
                     },
-                    
                     "expandAndCollapse": True,
                     "animationDuration": 550,
                     "animationDurationUpdate": 750
@@ -289,29 +370,48 @@ with tab1:
             ]
         }
         
-        # Renderizar gráfico con altura suficiente para organigramas verticales
+        st.info("💡 Usa la rueda del mouse para hacer Zoom. Arrastra para moverte.")
         st_echarts(options=option, height="850px")
 
     except Exception as e:
-        st.error(f"Error al generar la estructura del organigrama: {e}")
-        st.warning("Verifica datos huérfanos o ciclos infinitos (Jefe A es jefe de B, y B es jefe de A).")
+        st.error(f"Error crítico al generar organigrama: {e}")
 
-# --- ADVERTENCIA DE HUÉRFANOS ---
-if "JEFE_DIRECTO" in df_org_base.columns:
-    empleados_con_jefe = df_org_base["JEFE_DIRECTO"].dropna().unique()
-    nombres_empleados = df_org_base["NOMBRE COMPLETO"].unique()
-    huerfanos = []
-    for jefe in empleados_con_jefe:
-        if jefe and jefe not in nombres_empleados:
-            huerfanos.append(jefe)
-    empleados_sin_jefe = df_org_base[df_org_base["JEFE_DIRECTO"].isna() | (df_org_base["JEFE_DIRECTO"] == "")]
-    if not empleados_sin_jefe.empty:
-        st.warning(f"👀 Empleados sin jefe asignado: {', '.join(empleados_sin_jefe['NOMBRE COMPLETO'])}")
-    if huerfanos:
-        st.error(f"⚠️ Jefes asignados que no existen en la base: {', '.join(huerfanos)}")
+    # --- LEYENDA DE COLORES (Ahora sí funciona porque la función es global) ---
+    st.markdown("#### 🎨 Leyenda de colores por departamento")
+    leyenda_colores = {
+        "ADMINISTRATIVO": "#fde68a",
+        "OPERATIVO": "#a7f3d0",
+        "FINANZAS": "#fca5a5",
+        "COMERCIAL": "#93c5fd",
+        "RRHH": "#fbcfe8",
+        "TECNOLOGÍA": "#ddd6fe",
+        "LOGÍSTICA": "#bbf7d0",
+        "DIRECCIÓN": "#fef08a",
+        "JURÍDICO": "#f9a8d4",
+        "MARKETING": "#fdba74",
+        "OTROS": "#e0e7ef"
+    }
+    
+    html_leyenda = ""
+    for dept, color in leyenda_colores.items():
+        html_leyenda += f"<span style='display:inline-block;width:15px;height:15px;background:{color};border-radius:3px;margin-right:5px;border:1px solid #ccc;'></span><span style='margin-right:15px;font-size:14px;'>{dept}</span>"
+    
+    st.markdown(html_leyenda, unsafe_allow_html=True)
+
+    # --- ADVERTENCIA DE HUÉRFANOS ---
+    if "JEFE_DIRECTO" in df_org_final.columns:
+        # Buscamos jefes que están escritos en la col JEFE pero no existen como empleados
+        todos_empleados = set(df_org_final["NOMBRE COMPLETO"].unique())
+        jefes_citados = set(df_org_final["JEFE_DIRECTO"].unique())
+        # Removemos vacíos
+        jefes_citados.discard("")
+        
+        huerfanos_de_jefe = jefes_citados - todos_empleados
+        if huerfanos_de_jefe:
+            st.error(f"⚠️ **Error de Datos:** Hay empleados reportando a jefes que NO existen en la base de datos (revisa ortografía): {', '.join(huerfanos_de_jefe)}")
 
 # ==============================================================================
-# TAB 2: FICHA DE EMPLEADO & EDICIÓN (MANTENIDA EXACTA Y FUNCIONAL)
+# TAB 2: FICHA DE EMPLEADO & EDICIÓN
 # ==============================================================================
 with tab2:
     def actualizar_empleado_google_sheets(nombre, cedula, cargo, area, departamento, sede, jefe, correo, celular, centro_trabajo):
@@ -321,7 +421,6 @@ with tab2:
             sheet = spreadsheet.worksheet("BD EMPLEADOS")
             data_gs = sheet.get_all_records()
             
-            # Búsqueda robusta convirtiendo a string
             fila_encontrada = -1
             cedula_str = str(cedula).strip()
             
@@ -331,7 +430,6 @@ with tab2:
                     break
             
             if fila_encontrada > 0:
-                # Mapeo exacto de columnas
                 updates = [
                     (sheet.find("NOMBRE COMPLETO").col, nombre),
                     (sheet.find("CEDULA").col, cedula),
@@ -406,14 +504,14 @@ with tab2:
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 if pdf_bytes:
                     st.download_button(
-                        label="📥 Descargar Manual de Funciones (PDF)",
+                        label="📥 Descargar Manual (PDF)",
                         data=pdf_bytes,
                         file_name=f"Manual_{datos.get('CARGO','').replace(' ','_')}.pdf",
                         mime="application/pdf",
                         use_container_width=True
                     )
             else:
-                st.info(f"No se encontró manual PDF para el cargo: '{datos.get('CARGO')}'")
+                st.info(f"No se encontró manual PDF para: '{datos.get('CARGO')}'")
 
         # COLUMNA DERECHA: FORMULARIO DE EDICIÓN
         with col_card_der:
@@ -423,7 +521,7 @@ with tab2:
                 
                 # Campos editables
                 nuevo_nombre = c_a.text_input("Nombre Completo", value=datos.get("NOMBRE COMPLETO", ""))
-                # Cédula deshabilitada para evitar romper IDs
+                # Cédula deshabilitada
                 nuevo_cedula = c_b.text_input("Cédula (ID Único)", value=datos.get("CEDULA", ""), disabled=True)
                 
                 nuevo_cargo = c_a.text_input("Cargo", value=datos.get("CARGO", ""))
@@ -432,15 +530,15 @@ with tab2:
                 nuevo_depto = c_a.text_input("Departamento", value=datos.get("DEPARTAMENTO", ""))
                 nueva_sede = c_b.text_input("Sede", value=datos.get("SEDE", ""))
                 
-                # Recuperar jefe (puede venir con nombres distintos de columna)
-                jefe_actual = datos.get("JEFE_DIRECTO", "") or datos.get("JEFE INMEDIATO", "")
+                # Recuperar jefe normalizado
+                jefe_actual = datos.get("JEFE_DIRECTO", "") 
                 nuevo_jefe = c_a.text_input("Jefe Inmediato (Nombre Exacto)", value=jefe_actual)
                 
                 nuevo_correo = c_b.text_input("Correo Electrónico", value=datos.get("CORREO", ""))
                 nuevo_cel = c_a.text_input("Celular", value=datos.get("CELULAR", ""))
                 nuevo_centro = c_b.text_input("Centro de Trabajo", value=datos.get("CENTRO TRABAJO", ""))
                 
-                # Hidden ID real para el update
+                # ID real para el update
                 real_cedula_for_update = datos.get("CEDULA", "")
                 
                 st.markdown("---")
@@ -455,53 +553,12 @@ with tab2:
                         )
                         if exito:
                             st.success("✅ ¡Datos actualizados exitosamente!")
-                            st.cache_data.clear() # Obliga a recargar los datos
+                            st.cache_data.clear()
                             import time
                             time.sleep(1.5)
                             st.rerun()
                         else:
-                            st.error("❌ Error al actualizar. Verifica que la cédula no haya cambiado en la BD externa.")
+                            st.error("❌ Error al actualizar. Verifica que la cédula no haya cambiado.")
 
     else:
         st.warning("⚠️ No se encontraron empleados con los filtros seleccionados.")
-        
-    def color_por_departamento(depto):
-        colores = {
-            "ADMINISTRATIVO": "#fde68a",
-            "OPERATIVO": "#a7f3d0",
-            "FINANZAS": "#fca5a5",
-            "COMERCIAL": "#93c5fd",
-            "RRHH": "#fbcfe8",
-            "TECNOLOGÍA": "#ddd6fe",
-            "LOGÍSTICA": "#bbf7d0",
-            "DIRECCIÓN": "#fef08a",
-            "JURÍDICO": "#f9a8d4",
-            "MARKETING": "#fdba74",
-            "OTROS": "#e0e7ef"
-        }
-        if not depto:
-            return "#e0e7ef"
-        depto = depto.upper()
-        return colores.get(depto, "#e0e7ef")
-    
-    st.markdown("#### 🎨 Leyenda de colores por departamento")
-    leyenda_colores = {
-        "ADMINISTRATIVO": "#fde68a",
-        "OPERATIVO": "#a7f3d0",
-        "FINANZAS": "#fca5a5",
-        "COMERCIAL": "#93c5fd",
-        "RRHH": "#fbcfe8",
-        "TECNOLOGÍA": "#ddd6fe",
-        "LOGÍSTICA": "#bbf7d0",
-        "DIRECCIÓN": "#fef08a",
-        "JURÍDICO": "#f9a8d4",
-        "MARKETING": "#fdba74",
-        "OTROS": "#e0e7ef"
-    }
-    st.markdown(
-        "".join(
-            f"<span style='display:inline-block;width:18px;height:18px;background:{color};border-radius:4px;margin-right:6px;'></span> {depto} &nbsp;&nbsp;"
-            for depto, color in leyenda_colores.items()
-        ),
-        unsafe_allow_html=True
-    )
