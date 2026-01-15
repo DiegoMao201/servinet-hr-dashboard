@@ -11,7 +11,6 @@ from modules.drive_manager import (
 from modules.pdf_generator import create_manual_pdf_from_template
 import os
 import pandas as pd
-import re
 import datetime
 import json
 import base64
@@ -20,11 +19,8 @@ import urllib.parse
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
-# Verificar si existe el logo antes de mostrarlo para evitar errores
 if os.path.exists("logo_servinet.jpg"):
     st.image("logo_servinet.jpg", width=120)
-else:
-    st.warning("⚠️ No se encontró el archivo 'logo_servinet.jpg'.")
 
 st.title("🧠 Talent AI - SERVINET")
 st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
@@ -32,26 +28,22 @@ st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados e
 # --- CARGA DE DATOS Y CONTEXTO ---
 manuals_folder_id = get_or_create_manuals_folder()
 
-# MEJORA: Solo cargar el contexto UNA VEZ por sesión, pero sin caché que bloquee la UI
 if "company_context" not in st.session_state:
-    with st.spinner("🤖 La IA está leyendo tus manuales... (Esto toma unos segundos)"):
+    with st.spinner("🤖 La IA está leyendo tus manuales..."):
         st.session_state["company_context"] = get_company_context(manuals_folder_id)
         if st.session_state["company_context"]:
-            st.success("¡Contexto cargado! La IA ya conoce a Servinet.")
+            st.success("¡Contexto cargado!")
         else:
-            st.warning("No se encontraron manuales. La IA funcionará con conocimiento general.")
+            st.warning("No se encontraron manuales.")
 
-# MEJORA CRÍTICA: Limpiar el caché de empleados cada vez que se recarga la página
-# Esto asegura que siempre se carguen datos frescos
 df = get_employees()
 if df.empty:
     st.error("No se pudieron cargar los datos de los empleados.")
     st.stop()
 
 # --- LÓGICA PARA ENLACES COMPARTIDOS ---
-# Ajuste para compatibilidad con versiones recientes de Streamlit
 params = st.query_params
-empleado_cedula_link = params.get("cedula")  # Corregido para coincidir con el link generado
+empleado_cedula_link = params.get("cedula")
 token_link = params.get("token")
 empleado_seleccionado_por_link = None
 
@@ -65,39 +57,45 @@ if empleado_cedula_link and token_link:
     except Exception as e:
         st.error(f"Error validando el enlace: {e}")
 
-# --- SELECCIÓN DE EMPLEADO (INTERFAZ PRINCIPAL) ---
+# --- SELECCIÓN DE EMPLEADO CON DETECCIÓN DE CAMBIO ---
 st.markdown("---")
 st.subheader("Selección de Colaborador")
 
-# MEJORA: Forzar la actualización del empleado seleccionado
 if empleado_seleccionado_por_link:
-    st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Iniciado por enlace compartido)")
+    st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Link)")
     seleccion = empleado_seleccionado_por_link
 else:
     empleados_lista = [""] + sorted(df['NOMBRE COMPLETO'].unique())
-    # MEJORA: Agregar un key único que cambie con cada selección
     seleccion = st.selectbox(
-        "Seleccione un colaborador para gestionar:", 
+        "Seleccione un colaborador:", 
         empleados_lista,
         key="selector_empleado_principal"
     )
 
-# --- FLUJO PRINCIPAL ---
+# --- MEJORA CLAVE: DETECTAR CAMBIO DE EMPLEADO Y LIMPIAR CACHÉ ---
 if seleccion:
-    # OBTENER DATOS DEL EMPLEADO
+    # Obtener cédula del empleado seleccionado
     datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
+    cedula_empleado = str(datos_empleado['CEDULA']).strip()
     cargo_empleado = datos_empleado['CARGO']
-    cedula_empleado = datos_empleado['CEDULA']
 
-    # Definir pestañas
-    tab_titles = ["📄 Manual de Funciones", "📝 Evaluación", "📈 Resultados y Plan de Acción", "🔗 Compartir por WhatsApp"]
-    
-    # Si se accedió por link, solo mostramos la pestaña de evaluación
+    # Si el empleado cambió, limpiar todos los estados relacionados
+    if "ultima_cedula_seleccionada" not in st.session_state or st.session_state["ultima_cedula_seleccionada"] != cedula_empleado:
+        # Limpiar estados del empleado anterior
+        keys_to_clear = [k for k in st.session_state.keys() if any(x in k for x in ["eval_form_", "analisis_", "manual_"])]
+        for key in keys_to_clear:
+            st.session_state.pop(key, None)
+        
+        # Actualizar el registro de último empleado
+        st.session_state["ultima_cedula_seleccionada"] = cedula_empleado
+        st.rerun()  # Forzar recarga para reflejar el cambio
+
+    # --- PESTAÑAS ---
     if empleado_seleccionado_por_link:
-        tabs = st.tabs([tab_titles[1]]) # Solo mostrar pestaña de evaluación
+        tabs = st.tabs(["📝 Evaluación"])
         tab_manual, tab_eval, tab_resultados, tab_share = (None, tabs[0], None, None)
     else:
-        tabs = st.tabs(tab_titles)
+        tabs = st.tabs(["📄 Manual de Funciones", "📝 Evaluación", "📈 Resultados y Plan de Acción", "🔗 Compartir por WhatsApp"])
         tab_manual, tab_eval, tab_resultados, tab_share = tabs
 
     # --- PESTAÑA 1: MANUAL DE FUNCIONES ---
@@ -106,18 +104,17 @@ if seleccion:
             st.header(f"Manual de Funciones para: {cargo_empleado}")
             st.markdown(f"**Colaborador:** {seleccion} | **Departamento:** {datos_empleado.get('DEPARTAMENTO', '--')}")
             
-            force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", key=f"regen_{cedula_empleado}")
+            force_regen = st.checkbox("Forzar nueva generación", key=f"regen_{cedula_empleado}")
             manual_file_id = find_manual_in_drive(cargo_empleado, manuals_folder_id)
 
             if manual_file_id and not force_regen:
-                st.success("✅ Manual encontrado en Drive para este cargo.")
+                st.success("✅ Manual encontrado en Drive")
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{cargo_empleado.replace(' ', '_')}.pdf", "application/pdf")
             else:
-                st.warning("⚠️ No existe un manual para este cargo o se forzará la regeneración.")
-                if st.button("✨ Generar Manual de Funciones con IA", key=f"gen_manual_{cedula_empleado}"):
-                    with st.spinner("Redactando documento oficial con IA... (Esto puede tardar un minuto)"):
-                        # La IA ahora genera un bloque de HTML con todas las secciones
+                st.warning("⚠️ No existe manual o se forzará regeneración")
+                if st.button("✨ Generar Manual con IA", key=f"gen_manual_{cedula_empleado}"):
+                    with st.spinner("Redactando documento..."):
                         perfil_html_completo = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
                         
                         now = datetime.datetime.now()
@@ -132,7 +129,7 @@ if seleccion:
                             "vigencia": f"Año {now.year}", 
                             "fecha_emision": now.strftime("%d/%m/%Y"),
                             "cargo": cargo_empleado,
-                            # MEJORA: Pasamos el bloque de HTML completo a la plantilla
+                            "empleado": seleccion,
                             "perfil_html": perfil_html_completo
                         }
                         
@@ -140,55 +137,49 @@ if seleccion:
                         upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
                         
                         with open(pdf_filename, "rb") as f:
-                            st.download_button("📥 Descargar Manual PDF Generado", f.read(), os.path.basename(pdf_filename), "application/pdf")
-                        st.success("Manual generado y guardado en Drive.")
+                            st.download_button("📥 Descargar Manual Generado", f.read(), os.path.basename(pdf_filename), "application/pdf")
+                        st.success("Manual generado y guardado")
 
-    # --- PESTAÑA 2: EVALUACIÓN DE DESEMPEÑO ---
+    # --- PESTAÑA 2: EVALUACIÓN ---
     if tab_eval:
         with tab_eval:
-            st.header(f"Evaluación de Desempeño para: {seleccion} ({cargo_empleado})")
-            st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
+            st.header(f"Evaluación de Desempeño: {seleccion} ({cargo_empleado})")
+            st.info("La IA genera una evaluación profesional.")
 
-            # MEJORA CRÍTICA: ID consistente y normalizado
-            id_evaluacion = f"EVAL_FORM_{str(cedula_empleado).strip()}"
+            id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
             
-            # Botón para forzar regeneración (útil para depuración)
             col_btn1, col_btn2 = st.columns([3, 1])
             with col_btn2:
-                force_new = st.button("🔄 Nueva Eval", help="Genera un nuevo formulario desde cero")
+                if st.button("🔄 Nueva Eval", help="Genera nuevo formulario"):
+                    st.session_state.pop(f"eval_form_{cedula_empleado}", None)
+                    st.rerun()
             
-            if force_new:
-                st.session_state.pop(f"eval_form_{cedula_empleado}", None)
-            
-            # 1. Buscar si el formulario ya existe en memoria
+            # Buscar o generar formulario
             if f"eval_form_{cedula_empleado}" not in st.session_state:
-                with st.spinner("🔍 Buscando formulario guardado..."):
+                with st.spinner("🔍 Buscando formulario..."):
                     eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
                 
                 if eval_form_json:
                     try:
                         eval_form_data = json.loads(eval_form_json)
                         st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
-                        st.success("✅ Formulario cargado desde la memoria.")
+                        st.success("✅ Formulario cargado desde memoria")
                     except json.JSONDecodeError:
-                        st.error("Error al decodificar el formulario. Se generará uno nuevo.")
                         eval_form_data = None
                 else:
-                    # Si no existe, lo generamos
-                    with st.spinner("🧠 Generando nuevo formulario..."):
+                    with st.spinner("🧠 Generando formulario..."):
                         eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
                         if eval_form_data.get("preguntas"):
-                            # Guardamos inmediatamente
                             save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data, ensure_ascii=False))
                             st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
-                            st.success("✨ Nuevo formulario generado y guardado.")
+                            st.success("✨ Formulario generado y guardado")
                         else:
-                            st.error("Error generando el formulario.")
+                            st.error("Error generando formulario")
             
             eval_form_data = st.session_state.get(f"eval_form_{cedula_empleado}")
             
             if not eval_form_data or not eval_form_data.get("preguntas"):
-                st.error("No se pudo cargar o generar el formulario de evaluación.")
+                st.error("No se pudo cargar el formulario")
             else:
                 with st.form(f"form_eval_{cedula_empleado}"):
                     respuestas = {}
@@ -202,15 +193,14 @@ if seleccion:
                         )
                     
                     comentarios_evaluador = st.text_area(
-                        "Comentarios del Evaluador (Fortalezas y Áreas de Mejora):", 
+                        "Comentarios del Evaluador:", 
                         key=f"comentarios_{cedula_empleado}"
                     )
                     enviado = st.form_submit_button("💾 Guardar Evaluación", use_container_width=True)
 
                 if enviado:
-                    with st.spinner("Guardando respuestas..."):
-                        # MEJORA: Usar un ID diferente para las respuestas
-                        id_respuestas = f"EVAL_RESP_{str(cedula_empleado).strip()}"
+                    with st.spinner("Guardando..."):
+                        id_respuestas = f"EVAL_RESP_{cedula_empleado}"
                         contenido_evaluacion = {
                             "respuestas": respuestas, 
                             "comentarios": comentarios_evaluador,
@@ -221,51 +211,50 @@ if seleccion:
                             "EVALUACION", 
                             json.dumps(contenido_evaluacion, ensure_ascii=False)
                         )
-                        st.success("✅ Evaluación registrada correctamente.")
+                        st.success("✅ Evaluación registrada")
                         st.balloons()
 
-    # --- PESTAÑA 3: RESULTADOS Y PLAN DE ACCIÓN ---
+    # --- PESTAÑA 3: RESULTADOS ---
     if tab_resultados:
         with tab_resultados:
             st.header(f"Análisis de Desempeño: {seleccion}")
-            contenido_guardado = get_saved_content(str(cedula_empleado), "EVALUACION")
+            id_respuestas = f"EVAL_RESP_{cedula_empleado}"
+            contenido_guardado = get_saved_content(id_respuestas, "EVALUACION")
+            
             if contenido_guardado:
-                st.info("Mostrando el análisis de la última evaluación guardada para este empleado.")
+                st.info("Mostrando análisis de la última evaluación")
                 
-                # Botón para refrescar análisis
-                if st.button("🔄 Refrescar Análisis con IA"):
+                if st.button("🔄 Refrescar Análisis"):
                     st.session_state.pop(f"analisis_{cedula_empleado}", None)
+                    st.rerun()
 
                 if f"analisis_{cedula_empleado}" not in st.session_state:
-                    with st.spinner("La IA está analizando los resultados..."):
+                    with st.spinner("Analizando..."):
                          st.session_state[f"analisis_{cedula_empleado}"] = analyze_results(contenido_guardado)
 
                 st.markdown(st.session_state[f"analisis_{cedula_empleado}"], unsafe_allow_html=True)
             else:
-                st.warning("⚠️ No hay una evaluación guardada para este empleado. Por favor, completa y guarda una en la pestaña 'Evaluación'.")
+                st.warning("⚠️ No hay evaluación guardada para este empleado")
 
-    # --- PESTAÑA 4: COMPARTIR POR WHATSAPP ---
+    # --- PESTAÑA 4: COMPARTIR ---
     if tab_share:
         with tab_share:
             st.header("📲 Compartir Evaluación por WhatsApp")
-            st.info("Genera un enlace único y aislado para que el jefe directo complete la evaluación de forma remota.")
+            st.info("Genera un enlace único para evaluación remota")
 
-            # Token seguro basado en la cédula
             token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
-            base_url = "https://servinet.datovatenexuspro.com"  # Cambia por tu dominio real
-
-            # El link apunta a la raíz con los parámetros
+            base_url = "https://servinet.datovatenexuspro.com"
             url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
 
             mensaje = (
-                f"Hola, soy CAROLINA PEREZ. Te envío el link para realizar la evaluación de desempeño de *{seleccion}*.\n\n"
-                f"Por favor, completa todos los campos y guarda los cambios al finalizar. ¡Gracias!\n\n"
+                f"Hola, soy CAROLINA PEREZ. Te envío el link para evaluar a *{seleccion}*.\n\n"
+                f"Completa todos los campos y guarda al finalizar. ¡Gracias!\n\n"
                 f"Enlace: {url_evaluacion}"
             )
             mensaje_encoded = urllib.parse.quote(mensaje)
             whatsapp_link = f"https://web.whatsapp.com/send?text={mensaje_encoded}"
 
-            st.markdown(f"**Enlace de evaluación para {seleccion}:**")
+            st.markdown(f"**Enlace para {seleccion}:**")
             st.code(url_evaluacion, language="text")
             st.markdown(f'''
                 <a href="{whatsapp_link}" target="_blank" style="
@@ -275,9 +264,7 @@ if seleccion:
                     color: white;
                     text-decoration: none;
                     border-radius: 8px;
-                    font-weight: bold;
-                    text-align: center;">
-                    💬 Abrir en WhatsApp Web
+                    font-weight: bold;">
+                    💬 Abrir en WhatsApp
                 </a>
             ''', unsafe_allow_html=True)
-            st.success("Haz clic en el botón para abrir WhatsApp Web con el mensaje y el enlace listos para ser enviados.")
