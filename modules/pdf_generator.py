@@ -7,9 +7,20 @@ import datetime
 
 class PDF(FPDF):
     def header(self):
+        # Asegúrate de que la fuente DejaVu está registrada
+        if 'dejavu' not in self.font_families:
+            # La ruta puede necesitar ajuste dependiendo de dónde guardes la fuente
+            font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
+            if os.path.exists(font_path):
+                self.add_font('DejaVu', '', font_path, uni=True)
+        
+        logo_path = 'logo_servinet.jpg'
+        if os.path.exists(logo_path):
+            self.image(logo_path, 10, 8, 33)
+        
         self.set_font('DejaVu', 'B', 15)
         self.cell(80)
-        self.cell(30, 10, 'SERVINET - Manual de Funciones', 0, 0, 'C')
+        self.cell(30, 10, 'Manual de Funciones', 0, 0, 'C')
         self.ln(20)
 
     def footer(self):
@@ -18,93 +29,102 @@ class PDF(FPDF):
         self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
 
 def clean_html_to_text(html):
-    # Elimina imágenes externas y etiquetas <img>
-    html = re.sub(r'<img[^>]*>', '', html)
-    # Elimina todas las etiquetas HTML pero deja los emojis y texto
-    text = re.sub('<[^<]+?>', '', html)
-    # Opcional: reemplaza múltiples saltos de línea por uno solo
+    text = re.sub(r'<.*?>', '', html)
+    text = text.replace('&nbsp;', ' ')
+    text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'\n+', '\n', text)
     return text.strip()
 
 def create_manual_pdf(cargo, perfil_html, empleado=None):
-    """Genera un PDF profesional del manual de funciones."""
     pdf = PDF()
-    # Ruta absoluta para la fuente
     font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
-    pdf.add_font('DejaVu', '', font_path, uni=True)
-    pdf.add_font('DejaVu', 'B', font_path, uni=True)
-    pdf.add_font('DejaVu', 'I', font_path, uni=True)
-    pdf.set_font("DejaVu", "B", 14)
+    if os.path.exists(font_path):
+        pdf.add_font('DejaVu', '', font_path, uni=True)
+    pdf.set_font('DejaVu', '', 12)
     pdf.add_page()
-    title = f"Manual de Funciones: {cargo}"
+    
+    clean_text = clean_html_to_text(perfil_html)
+    pdf.multi_cell(0, 10, clean_text)
+    
+    filename = f"Manual_{cargo.replace(' ', '_')}"
     if empleado:
-        title += f" - {empleado}"
-    pdf.cell(0, 10, title, ln=True, align='C')
-    pdf.ln(5)
-    pdf.set_font("DejaVu", "", 11)
-    text = clean_html_to_text(perfil_html)
-    pdf.multi_cell(0, 10, text)
-    # Guarda el PDF en una ruta absoluta temporal
-    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
+        filename += f"_{empleado.replace(' ', '_')}"
+    filename += ".pdf"
+    
     abs_path = os.path.abspath(filename)
     pdf.output(abs_path)
     return abs_path
 
 def create_manual_pdf_from_html(html_content, cargo, empleado=None):
-    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
+    filename = f"Manual_{cargo.replace(' ', '_')}"
+    if empleado:
+        filename += f"_{empleado.replace(' ', '_')}"
+    filename += ".pdf"
     abs_path = os.path.abspath(filename)
     HTML(string=html_content).write_pdf(abs_path)
     return abs_path
 
 def extract_section(html, section_title):
-    # Busca el bloque por título (ejemplo simple, mejora según tu IA)
-    pattern = rf"<h2.*?>.*?{section_title}.*?</h2>(.*?)<h2"
-    match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+    pattern = re.compile(f'<h3[^>]*>{re.escape(section_title)}</h3>\s*<ul[^>]*>(.*?)</ul>', re.DOTALL | re.IGNORECASE)
+    match = pattern.search(html)
     if match:
         return match.group(1).strip()
     return ""
 
 def create_manual_pdf_from_template(data, cargo, empleado=None):
-    """
-    MEJORA: Utiliza una plantilla Jinja2 profesional y pasa el HTML de la IA
-    directamente para que el CSS de la plantilla lo estilice.
-    """
     template_dir = os.path.dirname(__file__)
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template("manual_template.html")
-
-    # El diccionario 'data' ya contiene 'perfil_html' con todas las secciones.
-    # Simplemente lo pasamos a la plantilla.
-    html_content = template.render(**data)
     
-    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
+    html_content = template.render(data)
+    
+    filename = f"Manual_{cargo.replace(' ', '_')}"
+    if empleado:
+        filename += f"_{empleado.replace(' ', '_')}"
+    filename += ".pdf"
     abs_path = os.path.abspath(filename)
     
-    # WeasyPrint hace la magia de convertir el HTML y CSS en un PDF profesional.
     HTML(string=html_content, base_url=template_dir).write_pdf(abs_path)
     
     return abs_path
 
-def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=None, filename="Organigrama_Cargos.pdf"):
+# --- MEJORA 2: FUNCIÓN COMPLETA Y CONECTADA PARA EL PDF DEL ORGANIGRAMA ---
+def export_organigrama_pdf(cargos_info, descripcion_general, empresa_nombre="SERVINET", filename="Organigrama_Cargos.pdf"):
     """
-    Genera un PDF profesional del organigrama usando una plantilla HTML.
+    Genera un PDF profesional del organigrama usando la nueva plantilla unificada y corregida.
     """
     template_dir = os.path.dirname(__file__)
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template("organigrama_template.html")
     logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
 
+    # MEJORA: Paleta de colores para los departamentos, unificada y profesional
+    colores_departamento = {
+        "ADMINISTRATIVO": "#facc15", # Amarillo
+        "OPERATIVO": "#4ade80",      # Verde
+        "FINANZAS": "#f87171",       # Rojo
+        "COMERCIAL": "#60a5fa",      # Azul
+        "RRHH": "#f472b6",           # Rosa
+        "TECNOLOGÍA": "#a78bfa",     # Púrpura
+        "LOGÍSTICA": "#34d399",      # Esmeralda
+        "DIRECCIÓN": "#fbbf24",      # Ámbar
+        "JURÍDICO": "#e879f9",       # Fucsia
+        "MARKETING": "#fb923c",      # Naranja
+        "OTROS": "#9ca3af"           # Gris
+    }
+
     html_content = template.render(
         cargos_info=cargos_info,
         descripcion_general=descripcion_general,
-        leyenda_colores=leyenda_colores or {},
+        empresa=empresa_nombre,
+        colores_depto=colores_departamento, # Pasamos la paleta de colores
         logo_url=logo_path,
         now=datetime.datetime.now()
     )
     HTML(string=html_content, base_url=template_dir).write_pdf(filename)
     return filename
 
-# --- MEJORA CLAVE: TODO EL BLOQUE DE EJEMPLO AHORA ES UN COMENTARIO ---
+# --- BLOQUE DE EJEMPLO, AHORA CORRECTAMENTE COMENTADO PARA NO CAUSAR ERRORES ---
 """
 El siguiente bloque es solo un ejemplo de cómo usar las funciones en tus páginas.
 No debe ejecutarse directamente en este módulo.
