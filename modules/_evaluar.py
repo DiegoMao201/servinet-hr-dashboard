@@ -46,7 +46,7 @@ def render_evaluation_page(cedula_empleado, token):
     st.markdown("---")
 
     # --- CARGAR FORMULARIO DESDE MEMORIA ---
-    id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
+    id_evaluacion = f"EVAL_FORM_{str(cedula_empleado).strip()}"
     with st.spinner("🔍 Cargando formulario de evaluación..."):
         eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
     
@@ -80,3 +80,13 @@ def render_evaluation_page(cedula_empleado, token):
             save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
             st.success("🎉 ¡Evaluación registrada con éxito! Gracias. Ya puede cerrar esta ventana.")
             st.balloons()
+
+    # --- ANÁLISIS DE ERRORES ---
+    if not eval_form_json:
+        st.warning(f"No se encontró un formulario pre-generado para ID: {id_evaluacion} y tipo_doc: EVAL_FORM")
+        # Opcional: muestra todos los IDs existentes para depuración
+        worksheet = init_memory()
+        if worksheet:
+            data = worksheet.get_all_records()
+            ids = [row['ID_UNICO'] for row in data if row.get('TIPO_DOC') == "EVAL_FORM"]
+            st.info(f"Formularios existentes en memoria: {ids}")

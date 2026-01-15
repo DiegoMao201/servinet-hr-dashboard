@@ -142,7 +142,7 @@ if seleccion:
             st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
 
             # MEJORA CLAVE: Lógica de "Generar y Guardar" o "Cargar Existente"
-            id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
+            id_evaluacion = f"EVAL_FORM_{str(cedula_empleado).strip()}"
             
             # 1. Buscar si el formulario de evaluación ya existe en la memoria
             eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
@@ -157,6 +157,11 @@ if seleccion:
                     eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
                     if eval_form_data.get("preguntas"):
                         save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data))
+                        contenido_guardado = get_saved_content(id_evaluacion, "EVAL_FORM")
+                        if contenido_guardado:
+                            st.info("✅ Formulario guardado correctamente en memoria.")
+                        else:
+                            st.error("❌ No se pudo guardar el formulario en memoria.")
                         st.success("✨ Nuevo formulario de evaluación generado y guardado para este empleado.")
                     else:
                         st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
