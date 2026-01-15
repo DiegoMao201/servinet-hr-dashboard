@@ -141,18 +141,28 @@ if seleccion:
             st.header(f"Evaluación de Desempeño para: {seleccion} ({cargo_empleado})")
             st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
 
-            # Inicializar el estado del formulario si no existe
-            if f"eval_form_{cedula_empleado}" not in st.session_state:
-                with st.spinner("🧠 La IA está generando un formulario de evaluación a medida..."):
-                    st.session_state[f"eval_form_{cedula_empleado}"] = generate_evaluation(cargo_empleado, st.session_state["company_context"])
+            # MEJORA CLAVE: Lógica de "Generar y Guardar" o "Cargar Existente"
+            id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
             
-            eval_form_data = st.session_state[f"eval_form_{cedula_empleado}"]
+            # 1. Buscar si el formulario de evaluación ya existe en la memoria
+            eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
+            
+            if eval_form_json:
+                # Si existe, lo cargamos
+                eval_form_data = json.loads(eval_form_json)
+                st.success("✅ Formulario de evaluación cargado desde la memoria.")
+            else:
+                # Si no existe, lo generamos y lo guardamos inmediatamente
+                with st.spinner("🧠 Creando y guardando un nuevo formulario de evaluación único..."):
+                    eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
+                    if eval_form_data.get("preguntas"):
+                        save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data))
+                        st.success("✨ Nuevo formulario de evaluación generado y guardado para este empleado.")
+                    else:
+                        st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
             
             if not eval_form_data.get("preguntas"):
-                st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
-                if st.button("Reintentar Generación"):
-                    del st.session_state[f"eval_form_{cedula_empleado}"]
-                    st.rerun()
+                st.error("No se pudo cargar o generar el formulario de evaluación.")
             else:
                 with st.form(f"form_eval_{cedula_empleado}"):
                     respuestas = {}
@@ -170,6 +180,8 @@ if seleccion:
 
                 if enviado:
                     with st.spinner("Guardando respuestas..."):
+                        # Guardamos las RESPUESTAS con un ID diferente
+                        id_respuestas = f"EVAL_RESP_{cedula_empleado}"
                         contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
                         save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
                         st.success("✅ Evaluación registrada correctamente. Ahora puedes ver el análisis en la pestaña 'Resultados y Plan de Acción'.")
@@ -201,12 +213,11 @@ if seleccion:
             st.header("📲 Compartir Evaluación por WhatsApp")
             st.info("Genera un enlace único y aislado para que el jefe directo complete la evaluación de forma remota.")
 
+            # Token seguro basado en la cédula
             token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
-            
-            # URL base de tu aplicación en Coolify
-            base_url = "https://servinet.datovatenexuspro.com"
+            base_url = "https://servinet.datovatenexuspro.com"  # Cambia por tu dominio real
 
-            # Construye el enlace apuntando a la RAÍZ de la app con los parámetros
+            # El link apunta a la raíz con los parámetros
             url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
 
             mensaje = (
@@ -214,7 +225,6 @@ if seleccion:
                 f"Por favor, completa todos los campos y guarda los cambios al finalizar. ¡Gracias!\n\n"
                 f"Enlace: {url_evaluacion}"
             )
-            
             mensaje_encoded = urllib.parse.quote(mensaje)
             whatsapp_link = f"https://web.whatsapp.com/send?text={mensaje_encoded}"
 

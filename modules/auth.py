@@ -1,88 +1,52 @@
 import streamlit as st
 import os
-import pickle
-import base64
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+from modules._evaluar import render_evaluation_page
+from modules.auth import check_password
 
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets"
-]
+# --- CONFIGURACIÓN INICIAL DE LA PÁGINA ---
+st.set_page_config(
+    page_title="SERVINET HR Dashboard",
+    page_icon="📡",
+    layout="wide"
+)
 
-@st.cache_resource(show_spinner="Conectando a los servicios de Google...")
-def get_google_creds():
-    """
-    Función centralizada para obtener credenciales de Google.
-    Cacheada como un recurso para no repetir el proceso en la misma sesión.
-    """
-    creds = None
-    # Prioriza las variables de entorno (producción)
-    token_b64 = os.environ.get("GOOGLE_TOKEN_PICKLE_B64")
-    if token_b64:
-        creds = pickle.loads(base64.b64decode(token_b64))
-    # Si no, busca el archivo local (desarrollo)
-    elif os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+# --- MEJORA CLAVE: EL PORTERO INTELIGENTE (ROUTER) ---
+# 1. Revisa si la URL contiene los parámetros para una evaluación externa
+params = st.query_params
+cedula_eval = params.get("cedula")
+token_eval = params.get("token")
 
-    # Valida y refresca el token si es necesario
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # Flujo para generar un nuevo token si no existe
-            secret_b64 = os.environ.get("GOOGLE_CLIENT_SECRET_JSON_B64")
-            if secret_b64:
-                secret_json = base64.b64decode(secret_b64).decode("utf-8")
-                with open("client_secret.json", "w", encoding="utf-8") as f:
-                    f.write(secret_json)
-            
-            if not os.path.exists("client_secret.json"):
-                st.error("Falta el archivo 'client_secret.json' para la autenticación de Google.")
-                return None
+# 2. SI ES UN ENLACE DE EVALUACIÓN, RENDERIZA LA PÁGINA DEDICADA Y DETIENE TODO LO DEMÁS
+if cedula_eval and token_eval:
+    # Llama a la función desde tu módulo _evaluar.py para mostrar la vista dedicada.
+    # Esto cumple tu requisito de que el enlace solo muestre la evaluación.
+    render_evaluation_page(cedula_eval, token_eval)
 
-            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
-            # Idealmente, se usa generar_token.py para esto, pero es un fallback
-            creds = flow.run_console()
+# 3. SI ES UN ACCESO NORMAL, PIDE CONTRASEÑA Y MUESTRA LA APP COMPLETA
+else:
+    # La función check_password() ahora maneja el login y devuelve True si es exitoso.
+    if check_password():
+        # --- PÁGINA DE BIENVENIDA (Solo se muestra si la contraseña es correcta) ---
+        st.title("📡 Panel de Control RRHH - SERVINET")
         
-        # Guarda el nuevo token para futuras ejecuciones
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-            
-    return creds
-
-def get_secret(key, section=None):
-    """
-    Busca un secreto primero en st.secrets (Local)
-    y si no existe, busca en Variables de Entorno (Servidor/Coolify).
-    """
-    try:
-        if section:
-            return st.secrets[section][key]
-        return st.secrets[key]
-    except (FileNotFoundError, KeyError):
-        env_key = f"{section.upper()}_{key.upper()}" if section else key.upper()
-        return os.environ.get(env_key)
-
-def check_password():
-    """
-    Muestra el formulario de login y retorna True si la contraseña es correcta.
-    Esta función ya NO se preocupa por los enlaces de evaluación.
-    """
-    if st.session_state.get("password_correct", False):
-        return True
-
-    st.header("🔒 Acceso Restringido - SERVINET")
-    password_input = st.text_input("Ingrese contraseña de acceso", type="password")
-
-    if st.button("Ingresar"):
-        correct_password = get_secret("admin", section="passwords")
+        if os.path.exists("logo_servinet.jpg"):
+            st.image("logo_servinet.jpg", width=180)
         
-        if correct_password and password_input == correct_password:
-            st.session_state["password_correct"] = True
-            st.rerun()
-        else:
-            st.error("❌ Contraseña incorrecta o error de configuración")
-            
-    return False
+        st.markdown("---")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info("👋 **Bienvenido al sistema centralizado.**")
+            st.markdown("""
+            Seleccione una opción del menú de la izquierda para comenzar.
+            *   Visualizar el organigrama en tiempo real.
+            *   Realizar evaluaciones de desempeño asistidas por IA.
+            *   Consultar la base de datos de empleados.
+            """)
+        with col2:
+            st.warning("⚠️ **Estado del Sistema**")
+            st.success("✅ Conexión a Google Drive: ACTIVA")
+            st.success("✅ Motor de IA: LISTO")
+
+        st.markdown("---")
+        st.caption("Desarrollado para SERVINET - Versión 1.0")

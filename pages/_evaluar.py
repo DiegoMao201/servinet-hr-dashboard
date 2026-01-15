@@ -2,18 +2,18 @@ import streamlit as st
 import pandas as pd
 import json
 import base64
-from modules.database import get_employees, save_content_to_memory, get_saved_content
+from modules.database import get_employees, save_content_to_memory
 from modules.ai_brain import generate_evaluation
 
 def render_evaluation_page(cedula_empleado, token):
     """
-    Vista dedicada y profesional para el jefe.
+    Esta función dibuja la página de evaluación completa.
     """
-    # --- OCULTAR MENÚ Y ENCABEZADO ---
+    # --- OCULTAR LA INTERFAZ DE STREAMLIT ---
     st.markdown("""
         <style>
-            [data-testid="stSidebar"], [data-testid="main-menu"], [data-testid="stHeader"] { display: none; }
-            .main .block-container { max-width: 700px; margin: auto; padding-top: 2rem; }
+            [data-testid="stSidebar"], [data-testid="main-menu"] { display: none; }
+            .main .block-container { padding-top: 2rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -30,7 +30,7 @@ def render_evaluation_page(cedula_empleado, token):
         st.error("❌ Error al validar el enlace.")
         st.stop()
 
-    # --- DATOS DEL EMPLEADO ---
+    # --- OBTENER DATOS Y MOSTRAR FORMULARIO ---
     df = get_employees()
     if df.empty:
         st.error("No se pudo conectar con la base de datos de empleados."); st.stop()
@@ -45,34 +45,19 @@ def render_evaluation_page(cedula_empleado, token):
     st.info("Por favor, complete todas las preguntas y guarde los cambios al finalizar.")
     st.markdown("---")
 
-    # --- CARGAR FORMULARIO DESDE MEMORIA ---
-    id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
-    with st.spinner("🔍 Cargando formulario de evaluación..."):
-        eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
-    
-    if eval_form_json:
-        eval_form_data = json.loads(eval_form_json)
-    else:
-        # Fallback: Si no existe, lo genera y lo guarda
-        st.warning("No se encontró un formulario pre-generado. Creando uno nuevo...")
+    with st.spinner("🧠 Generando formulario de evaluación..."):
         eval_form_data = generate_evaluation(datos_empleado['CARGO'], "")
-        if eval_form_data.get("preguntas"):
-            save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data))
-        else:
-            st.error("Error crítico: No se pudo generar el formulario. Contacte a RRHH.")
-            st.stop()
 
     if not eval_form_data.get("preguntas"):
         st.error("La IA no pudo generar el formulario. Recargue la página."); st.stop()
 
-    # --- FORMULARIO DE EVALUACIÓN ---
     with st.form(f"form_eval_externa_{cedula_empleado}"):
         respuestas = {}
         for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
             respuestas[f"preg_{idx}"] = st.radio(f"{idx+1}. {pregunta.get('texto')}", pregunta.get("opciones"), horizontal=True)
         
         comentarios_evaluador = st.text_area("Comentarios del Evaluador (Fortalezas y Áreas de Mejora):")
-        enviado = st.form_submit_button("✅ Finalizar y Guardar Evaluación", use_container_width=True, type="primary")
+        enviado = st.form_submit_button("✅ Finalizar y Guardar Evaluación", use_container_width=True)
 
     if enviado:
         with st.spinner("Guardando respuestas..."):
