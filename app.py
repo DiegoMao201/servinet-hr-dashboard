@@ -1,6 +1,11 @@
 import streamlit as st
 from modules.auth import check_password
 import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde el archivo .env (si existe)
+# Esto es ideal para el desarrollo local y no afectará el despliegue
+load_dotenv()
 
 # Configuración de página
 st.set_page_config(
