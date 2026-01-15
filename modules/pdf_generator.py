@@ -104,8 +104,12 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=Non
     HTML(string=html_content, base_url=template_dir).write_pdf(filename)
     return filename
 
-# En manual_template.html, después de la portada
+# --- MEJORA CLAVE: TODO EL BLOQUE DE EJEMPLO AHORA ES UN COMENTARIO ---
 """
+El siguiente bloque es solo un ejemplo de cómo usar las funciones en tus páginas.
+No debe ejecutarse directamente en este módulo.
+
+# En manual_template.html, después de la portada
 <div class="pdf-page shadow-2xl mb-10 animate-fade-in">
   <div class="absolute inset-0 geometric-pattern"></div>
   <div class="content-wrapper h-full flex flex-col">
@@ -120,14 +124,14 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=Non
     {{ perfil_html | safe }}
   </div>
 </div>
-"""
 
 # EJEMPLO DE USO (colócalo en tu página, no aquí):
 
 cargos_info = []
 for _, row in df_cargos.iterrows():
     desc_cargo = "Descripción no generada."
-    if openai_client:
+    # La variable 'openai_client' debe estar definida en la página que usa este código.
+    if 'openai_client' in locals() and openai_client:
         try:
             prompt_cargo = f"Describe brevemente en una línea el propósito del cargo '{row['CARGO']}' en el departamento '{row['DEPARTAMENTO']}' para una empresa de telecomunicaciones."
             resp = openai_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt_cargo}], temperature=0.2)
@@ -140,4 +144,5 @@ for _, row in df_cargos.iterrows():
         "descripcion": desc_cargo,
         "empleados": row['NOMBRE_COMPLETO']  # Esto debe ser una lista, no string
     })
+"""
 
