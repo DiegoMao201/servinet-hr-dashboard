@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Organigrama Corporativo - SERVINET</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 14mm 18mm 14mm;
+    }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      color: #1e293b;
+      background: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 18px;
+      border-bottom: 3px solid #3b82f6;
+      padding-bottom: 10px;
+    }
+    .logo {
+      height: 70px;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 2.2em;
+      color: #003d6e;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+    .subtitle {
+      font-size: 1.1em;
+      color: #00a8e1;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .executive-summary {
+      background: #f0f4fa;
+      border-left: 5px solid #3b82f6;
+      padding: 14px 18px;
+      margin: 18px 0 28px 0;
+      font-size: 1.08em;
+      border-radius: 7px;
+    }
+    .cargo-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      justify-content: flex-start;
+      margin-bottom: 18px;
+    }
+    .cargo-card {
+      flex: 1 1 320px;
+      min-width: 320px;
+      max-width: 370px;
+      background: linear-gradient(120deg, #f8fafc 80%, #e0e7ef 100%);
+      border-radius: 14px;
+      border: 1.5px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      padding: 22px 18px 18px 18px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-inside: avoid;
+      transition: box-shadow 0.2s;
+    }
+    .cargo-title {
+      font-size: 1.25em;
+      color: #003d6e;
+      font-weight: bold;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    .cargo-depto {
+      font-size: 1em;
+      font-weight: 600;
+      color: #00a8e1;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cargo-desc {
+      font-size: 1.05em;
+      color: #475569;
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+    .cargo-empleados {
+      font-size: 1em;
+      color: #222;
+      margin-bottom: 4px;
+    }
+    .cargo-empleados ul {
+      margin: 0 0 0 18px;
+      padding: 0;
+    }
+    .cargo-empleados li {
+      margin-bottom: 2px;
+      font-size: 0.98em;
+      color: #334155;
+    }
+    .footer {
+      margin-top: 30px;
+      text-align: right;
+      font-size: 0.95em;
+      color: #888;
+      border-top: 1.5px solid #e5e7eb;
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    {% if logo_url %}
+      <img src="{{ logo_url }}" class="logo" alt="Logo Servinet">
+    {% endif %}
+    <div class="title">Organigrama Corporativo</div>
+    <div class="subtitle">SERVINET - RRHH</div>
+  </div>
+  <div class="executive-summary">
+    <b>Resumen Ejecutivo:</b><br>
+    {{ descripcion_general }}
+  </div>
+  <div class="cargo-grid">
+    {% for cargo in cargos_info %}
+      <div class="cargo-card">
+        <div class="cargo-title">{{ cargo.cargo }}</div>
+        <div class="cargo-depto">{{ cargo.departamento }}</div>
+        <div class="cargo-desc">{{ cargo.descripcion }}</div>
+        <div class="cargo-empleados">
+          <b>Empleados ({{ cargo.empleados|length }}):</b>
+          <ul>
+            {% for emp in cargo.empleados %}
+              <li>{{ emp }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="footer">
+    Documento generado automáticamente por IA y RRHH. SERVINET {{ now.year }}.
+  </div>
+</body>
+</html>

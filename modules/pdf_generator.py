@@ -3,6 +3,7 @@ from weasyprint import HTML
 from jinja2 import Environment, FileSystemLoader
 import os
 import re
+import datetime
 
 class PDF(FPDF):
     def header(self):
@@ -86,90 +87,21 @@ def create_manual_pdf_from_template(data, cargo, empleado=None):
 
 def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=None, filename="Organigrama_Cargos.pdf"):
     """
-    cargos_info: lista de dicts con keys: cargo, departamento, descripcion, empleados (lista)
-    descripcion_general: texto generado por IA
-    leyenda_colores: dict departamento -> color
+    Genera un PDF profesional del organigrama usando una plantilla HTML.
     """
-    template_html = """
-    <!doctype html>
-    <html lang=\"es\">
-    <head>
-      <meta charset=\"UTF-8\">
-      <title>Organigrama Corporativo por Cargos</title>
-      <style>
-        @page { size: A4; margin: 25mm 20mm 25mm 20mm; }
-        body { font-family: 'Inter', Arial, sans-serif; color: #222; background: #fff; }
-        .header { text-align: center; margin-bottom: 40px; }
-        .logo { height: 80px; margin-bottom: 10px; }
-        .title { font-size: 2.5em; color: #003d6e; font-weight: bold; margin-bottom: 8px; }
-        .subtitle { font-size: 1.2em; color: #00a8e1; margin-bottom: 18px; }
-        .executive-summary { background: #f0f2f6; border-left: 5px solid #003d6e; padding: 18px; margin-bottom: 30px; font-size: 1.1em; }
-        .cargo-grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: flex-start; }
-        .cargo-card {
-          flex: 1 1 320px;
-          min-width: 320px;
-          max-width: 370px;
-          background: #fff;
-          border-radius: 14px;
-          border: 1.5px solid #e2e8f0;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-          padding: 22px 18px 18px 18px;
-          margin-bottom: 18px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-        .cargo-title { font-size: 1.3em; color: #003d6e; font-weight: bold; margin-bottom: 6px; }
-        .cargo-depto { font-size: 1em; font-weight: 600; color: #00a8e1; margin-bottom: 8px; }
-        .cargo-desc { font-size: 1.05em; color: #475569; margin-bottom: 10px; }
-        .cargo-empleados { font-size: 1em; color: #222; margin-bottom: 4px; }
-        .cargo-empleados ul { margin: 0 0 0 18px; }
-        .cargo-empleados li { margin-bottom: 2px; }
-        .footer { margin-top: 40px; text-align: right; font-size: 0.9em; color: #888; }
-        .page-break { page-break-after: always; }
-      </style>
-    </head>
-    <body>
-      <div class=\"header\">
-        <img src=\"https://i.imgur.com/9Qe5p7R.png\" class=\"logo\" alt=\"Logo Servinet\">
-        <div class=\"title\">Organigrama Corporativo por Cargos</div>
-        <div class=\"subtitle\">SERVINET - RRHH</div>
-      </div>
-      <div class=\"executive-summary\">
-        <b>Resumen Ejecutivo:</b><br>
-        {{ descripcion_general }}
-      </div>
-      <div class=\"cargo-grid\">
-        {% for cargo in cargos_info %}
-          <div class=\"cargo-card\">
-            <div class=\"cargo-title\">{{ cargo.cargo }}</div>
-            <div class=\"cargo-depto\">{{ cargo.departamento }}</div>
-            <div class=\"cargo-desc\">{{ cargo.descripcion }}</div>
-            <div class=\"cargo-empleados\">
-              <b>Empleados:</b>
-              <ul>
-                {% for emp in cargo.empleados %}
-                  <li>{{ emp }}</li>
-                {% endfor %}
-              </ul>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-      <div class=\"footer\">
-        Documento generado automáticamente por IA y RRHH. SERVINET 2024.
-      </div>
-    </body>
-    </html>
-    """
-    env = Environment(loader=FileSystemLoader("."))
-    template = env.from_string(template_html)
+    template_dir = os.path.dirname(__file__)
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("organigrama_template.html")
+    logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
+
     html_content = template.render(
         cargos_info=cargos_info,
         descripcion_general=descripcion_general,
-        leyenda_colores=leyenda_colores
+        leyenda_colores=leyenda_colores or {},
+        logo_url=logo_path,
+        now=datetime.datetime.now()
     )
-    HTML(string=html_content).write_pdf(filename)
+    HTML(string=html_content, base_url=template_dir).write_pdf(filename)
     return filename
 
 # En manual_template.html, después de la portada
