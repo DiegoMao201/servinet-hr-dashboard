@@ -180,8 +180,8 @@ if seleccion:
             # URL base de tu aplicación en Coolify
             base_url = "https://servinet.datovatenexuspro.com"
 
-            # Construye el enlace apuntando a la página oculta "_evaluar"
-            url_evaluacion = f"{base_url}/_evaluar?cedula={cedula_empleado}&token={token_seguro}"
+            # Construye el enlace apuntando a la RAÍZ de la app con los parámetros
+            url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
 
             mensaje = (
                 f"Hola, soy CAROLINA PEREZ. Te envío el link para realizar la evaluación de desempeño de *{seleccion}*.\n\n"
