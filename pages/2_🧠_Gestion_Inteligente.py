@@ -16,177 +16,100 @@ import datetime
 import json
 import base64
 import urllib.parse
-import time
 
-# ==============================================================================
-# 0. CONFIGURACIÓN Y ESTILOS
-# ==============================================================================
+# --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
 
-# CSS para limpiar la interfaz cuando entra un jefe externo
-st.markdown("""
-    <style>
-    /* Oculta la barra lateral y el menú principal de Streamlit */
-    [data-testid="stSidebar"], [data-testid="main-menu"] { display: none; }
-    /* Ajusta el padding superior para que el contenido no quede pegado arriba */
-    .main .block-container { padding-top: 2rem; }
-    
-    /* Estilo para la tarjeta del empleado en la vista externa */
-    .employee-card {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #0056b3; /* Color primario del tema */
-        margin-bottom: 20px;
-    }
-    .employee-name { font-size: 24px; font-weight: bold; color: #262730; }
-    .employee-role { font-size: 18px; color: #555; }
-    </style>
-""", unsafe_allow_html=True)
+# Verificar si existe el logo antes de mostrarlo para evitar errores
+if os.path.exists("logo_servinet.jpg"):
+    st.image("logo_servinet.jpg", width=120)
+else:
+    st.warning("⚠️ No se encontró el archivo 'logo_servinet.jpg'.")
 
-# ==============================================================================
-# 1. FUNCIONES AUXILIARES
-# ==============================================================================
+st.title("🧠 Talent AI - SERVINET")
+st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
 
-def validar_acceso_externo():
-    """Verifica si alguien entra con un link compartido válido."""
-    params = st.query_params
-    cedula_param = params.get("cedula", [None])[0]
-    token_param = params.get("token", [None])[0]
-    
-    if cedula_param and token_param:
-        try:
-            # CORRECCIÓN: El token debe ser la cédula en bytes antes de codificar
-            expected_token = base64.b64encode(str(cedula_param).encode('utf-8')).decode('utf-8')
-            if token_param == expected_token:
-                return str(cedula_param)
-        except Exception:
-            return None
-    return None
+# --- CARGA DE DATOS Y CONTEXTO ---
+manuals_folder_id = get_or_create_manuals_folder()
 
-def render_formulario_evaluacion(datos_empleado, context):
-    """Renderiza el formulario de evaluación (Reutilizable para Admin y Jefe Externo)"""
-    nombre = datos_empleado['NOMBRE COMPLETO']
-    cargo = datos_empleado['CARGO']
-    cedula = datos_empleado['CEDULA']
+if "company_context" not in st.session_state:
+    with st.spinner("🤖 La IA está leyendo tus manuales y PDFs... (Esto toma unos segundos)"):
+        st.session_state["company_context"] = get_company_context(manuals_folder_id)
+        if st.session_state["company_context"]:
+            st.success("¡Contexto cargado! La IA ya conoce a Servinet.")
+        else:
+            st.warning("No se encontraron manuales para crear el contexto. La IA funcionará con conocimiento general.")
 
-    st.markdown("### 📝 Formulario de Evaluación de Desempeño")
-    st.info(f"Por favor, evalúa las competencias de **{nombre}** en su rol de **{cargo}**.")
-
-    with st.spinner("🔄 Cargando dimensiones a evaluar..."):
-        eval_form_data = generate_evaluation(cargo, context)
-
-    if not eval_form_data.get("preguntas"):
-        st.error("No se pudo cargar el formulario. Intenta recargar la página.")
-        return
-
-    with st.form(f"form_eval_{cedula}"):
-        respuestas = {}
-        st.markdown("---")
-        
-        for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
-            st.markdown(f"**{idx+1}. {pregunta.get('texto')}**")
-            respuestas[f"preg_{idx}"] = st.radio(
-                "Seleccione una opción:", 
-                pregunta.get("opciones", []), 
-                key=f"radio_{cedula}_{idx}", 
-                label_visibility="collapsed",
-                horizontal=True
-            )
-            st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("**Conclusiones Generales**")
-        comentarios_evaluador = st.text_area(
-            "Fortalezas y Áreas de Mejora:", 
-            height=150,
-            placeholder="Escribe aquí tus observaciones detalladas sobre el desempeño..."
-        )
-        
-        enviado = st.form_submit_button("💾 GUARDAR Y FINALIZAR EVALUACIÓN", type="primary", use_container_width=True)
-
-    if enviado:
-        with st.spinner("Guardando evaluación en el sistema..."):
-            contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
-            save_content_to_memory(str(cedula), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
-            st.balloons()
-            st.success("✅ ¡Excelente! La evaluación ha sido guardada correctamente. Ya puede cerrar esta ventana.")
-            time.sleep(3)
-
-# ==============================================================================
-# 2. CARGA DE DATOS Y CONTEXTO
-# ==============================================================================
-
-@st.cache_data(ttl=600)
-def load_initial_data():
-    folder_id = get_or_create_manuals_folder()
-    company_context = get_company_context(folder_id)
-    return folder_id, company_context
-
-manuals_folder_id, company_context = load_initial_data()
 df = get_employees()
-
 if df.empty:
-    st.error("Error crítico: No se pudo conectar a la base de datos de empleados.")
+    st.error("No se pudieron cargar los datos de los empleados.")
     st.stop()
 
-# ==============================================================================
-# 3. ENRUTAMIENTO (ROUTER)
-# ==============================================================================
+# --- LÓGICA PARA ENLACES COMPARTIDOS ---
+# Ajuste para compatibilidad con versiones recientes de Streamlit
+params = st.query_params
+empleado_cedula_link = params.get("cedula")  # Corregido para coincidir con el link generado
+token_link = params.get("token")
+empleado_seleccionado_por_link = None
 
-cedula_externa = validar_acceso_externo()
+if empleado_cedula_link and token_link:
+    try:
+        expected_token = base64.b64encode(str(empleado_cedula_link).encode()).decode()
+        if token_link == expected_token:
+            empleado_encontrado = df[df['CEDULA'].astype(str) == str(empleado_cedula_link)]
+            if not empleado_encontrado.empty:
+                empleado_seleccionado_por_link = empleado_encontrado.iloc[0]['NOMBRE COMPLETO']
+    except Exception as e:
+        st.error(f"Error validando el enlace: {e}")
 
-if cedula_externa:
-    # ---------------------------------------------------------
-    # VISTA EXTERNA (JEFE / EVALUADOR) - SIN BARRAS LATERALES
-    # ---------------------------------------------------------
-    empleado_found = df[df['CEDULA'].astype(str) == cedula_externa]
-    
-    if not empleado_found.empty:
-        datos_empleado = empleado_found.iloc[0]
-        
-        st.image("logo_servinet.jpg", width=100)
-        st.markdown(f"""
-            <div class="employee-card">
-                <div class="employee-name">{datos_empleado['NOMBRE COMPLETO']}</div>
-                <div class="employee-role">📌 Cargo: {datos_empleado['CARGO']}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        render_formulario_evaluacion(datos_empleado, company_context)
-    else:
-        st.error("❌ El enlace no es válido o el empleado ya no existe en la base de datos.")
+# --- SELECCIÓN DE EMPLEADO (INTERFAZ PRINCIPAL) ---
+st.markdown("---")
+st.subheader("Selección de Colaborador")
 
+# Si se accedió por link, pre-seleccionamos al empleado
+if empleado_seleccionado_por_link:
+    st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Iniciado por enlace compartido)")
+    seleccion = empleado_seleccionado_por_link
 else:
-    # ---------------------------------------------------------
-    # VISTA ADMINISTRADOR (RRHH) - CON INTERFAZ COMPLETA
-    # ---------------------------------------------------------
-    st.title("🧠 Gestión de Talento - SERVINET")
-    st.markdown("Generación de perfiles, evaluaciones y planes de carrera.")
-
     empleados_lista = [""] + sorted(df['NOMBRE COMPLETO'].unique())
-    seleccion = st.selectbox("👤 Seleccione un colaborador para gestionar:", empleados_lista)
+    seleccion = st.selectbox("Seleccione un colaborador para gestionar:", empleados_lista)
 
-    if seleccion:
-        datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
-        cargo_empleado = datos_empleado['CARGO']
-        cedula_empleado = datos_empleado['CEDULA']
+# --- FLUJO PRINCIPAL ---
+if seleccion:
+    # OBTENER DATOS DEL EMPLEADO
+    datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
+    cargo_empleado = datos_empleado['CARGO']
+    cedula_empleado = datos_empleado['CEDULA']
 
-        tab_manual, tab_eval, tab_resultados, tab_share = st.tabs(["📄 Manual de Funciones", "📝 Evaluación Interna", "📈 Resultados", "🔗 Link para WhatsApp"])
+    # Definir pestañas
+    tab_titles = ["📄 Manual de Funciones", "📝 Evaluación", "📈 Resultados y Plan de Acción", "🔗 Compartir por WhatsApp"]
+    
+    # Si se accedió por link, solo mostramos la pestaña de evaluación
+    if empleado_seleccionado_por_link:
+        tabs = st.tabs([tab_titles[1]]) # Solo mostrar pestaña de evaluación
+        tab_manual, tab_eval, tab_resultados, tab_share = (None, tabs[0], None, None)
+    else:
+        tabs = st.tabs(tab_titles)
+        tab_manual, tab_eval, tab_resultados, tab_share = tabs
 
+    # --- PESTAÑA 1: MANUAL DE FUNCIONES ---
+    if tab_manual:
         with tab_manual:
-            st.subheader(f"Manual de Funciones: {cargo_empleado}")
-            force_regen = st.checkbox("Forzar nueva generación de manual", key=f"regen_{cedula_empleado}")
+            st.header(f"Manual de Funciones para: {cargo_empleado}")
+            st.markdown(f"**Colaborador:** {seleccion} | **Departamento:** {datos_empleado.get('DEPARTAMENTO', '--')}")
+            
+            force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", key=f"regen_{cedula_empleado}")
             manual_file_id = find_manual_in_drive(cargo_empleado, manuals_folder_id)
 
             if manual_file_id and not force_regen:
-                st.success("✅ Manual encontrado en Drive.")
+                st.success("✅ Manual encontrado en Drive para este cargo.")
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{cargo_empleado.replace(' ', '_')}.pdf", "application/pdf")
             else:
-                if st.button("✨ Generar Manual con IA", key=f"gen_manual_{cedula_empleado}"):
-                    with st.spinner("Generando documento..."):
-                        perfil_html = generate_role_profile_by_sections(cargo_empleado, company_context)
+                st.warning("⚠️ No existe un manual para este cargo o se forzará la regeneración.")
+                if st.button("✨ Generar Manual de Funciones con IA", key=f"gen_manual_{cedula_empleado}"):
+                    with st.spinner("Redactando documento oficial con IA... (Esto puede tardar un minuto)"):
+                        perfil_html = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
                         
                         def get_section(html, keyword):
                             pattern = rf"{keyword}(.*?)(<div class=\"section-title\"|$)"
@@ -194,8 +117,12 @@ else:
                             return match.group(1).strip() if match else ""
 
                         now = datetime.datetime.now()
+                        # Verificar ruta de logo para el PDF
+                        logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
+                        
                         datos_plantilla = {
-                            "empresa": "GRUPO SERVINET", "logo_url": os.path.abspath("logo_servinet.jpg"),
+                            "empresa": "GRUPO SERVINET", 
+                            "logo_url": logo_path,
                             "codigo_doc": f"DOC-MF-{cedula_empleado}", "departamento": datos_empleado.get("DEPARTAMENTO", ""),
                             "version": "1.0", "vigencia": f"Año {now.year}", "fecha_emision": now.strftime("%d/%m/%Y"),
                             "empleado": seleccion, "cargo": cargo_empleado,
@@ -210,52 +137,107 @@ else:
                         
                         pdf_filename = create_manual_pdf_from_template(datos_plantilla, cargo_empleado, empleado=seleccion)
                         upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
+                        
                         with open(pdf_filename, "rb") as f:
-                            st.download_button("📥 Bajar Nuevo PDF", f.read(), os.path.basename(pdf_filename))
-                        st.success("Manual generado y subido a Drive.")
+                            st.download_button("📥 Descargar Manual PDF Generado", f.read(), os.path.basename(pdf_filename), "application/pdf")
+                        st.success("Manual generado y guardado en Drive.")
 
+    # --- PESTAÑA 2: EVALUACIÓN DE DESEMPEÑO ---
+    if tab_eval:
         with tab_eval:
-            st.warning("Estás en vista de Administrador. Si deseas enviar esto al jefe, usa la pestaña 'Link para WhatsApp'.")
-            render_formulario_evaluacion(datos_empleado, company_context)
+            st.header(f"Evaluación de Desempeño para: {seleccion} ({cargo_empleado})")
+            st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
 
+            # Inicializar el estado del formulario si no existe
+            if f"eval_form_{cedula_empleado}" not in st.session_state:
+                with st.spinner("🧠 La IA está generando un formulario de evaluación a medida..."):
+                    st.session_state[f"eval_form_{cedula_empleado}"] = generate_evaluation(cargo_empleado, st.session_state["company_context"])
+            
+            eval_form_data = st.session_state[f"eval_form_{cedula_empleado}"]
+            
+            if not eval_form_data.get("preguntas"):
+                st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
+                if st.button("Reintentar Generación"):
+                    del st.session_state[f"eval_form_{cedula_empleado}"]
+                    st.rerun()
+            else:
+                with st.form(f"form_eval_{cedula_empleado}"):
+                    respuestas = {}
+                    st.markdown("#### Cuestionario de Evaluación")
+                    for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
+                        respuestas[f"preg_{idx}"] = st.radio(
+                            f"{idx+1}. {pregunta.get('texto')}", 
+                            pregunta.get("opciones"), 
+                            key=f"preg_{idx}_{cedula_empleado}", 
+                            horizontal=True
+                        )
+                    
+                    comentarios_evaluador = st.text_area("Comentarios del Evaluador (Fortalezas y Áreas de Mejora):", key=f"comentarios_{cedula_empleado}")
+                    enviado = st.form_submit_button("💾 Guardar Evaluación", use_container_width=True)
+
+                if enviado:
+                    with st.spinner("Guardando respuestas..."):
+                        contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
+                        save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
+                        st.success("✅ Evaluación registrada correctamente. Ahora puedes ver el análisis en la pestaña 'Resultados y Plan de Acción'.")
+                        st.balloons()
+
+    # --- PESTAÑA 3: RESULTADOS Y PLAN DE ACCIÓN ---
+    if tab_resultados:
         with tab_resultados:
-            st.header("Análisis de Resultados")
+            st.header(f"Análisis de Desempeño: {seleccion}")
             contenido_guardado = get_saved_content(str(cedula_empleado), "EVALUACION")
             if contenido_guardado:
-                if st.button("🧠 Analizar con IA", key=f"analizar_{cedula_empleado}"):
-                    with st.spinner("Interpretando resultados..."):
-                        analisis = analyze_results(contenido_guardado)
-                        st.markdown(analisis, unsafe_allow_html=True)
+                st.info("Mostrando el análisis de la última evaluación guardada para este empleado.")
+                
+                # Botón para refrescar análisis
+                if st.button("🔄 Refrescar Análisis con IA"):
+                    st.session_state.pop(f"analisis_{cedula_empleado}", None)
+
+                if f"analisis_{cedula_empleado}" not in st.session_state:
+                    with st.spinner("La IA está analizando los resultados..."):
+                         st.session_state[f"analisis_{cedula_empleado}"] = analyze_results(contenido_guardado)
+
+                st.markdown(st.session_state[f"analisis_{cedula_empleado}"], unsafe_allow_html=True)
             else:
-                st.info("Aún no se ha completado la evaluación para este empleado.")
+                st.warning("⚠️ No hay una evaluación guardada para este empleado. Por favor, completa y guarda una en la pestaña 'Evaluación'.")
 
+    # --- PESTAÑA 4: COMPARTIR POR WHATSAPP ---
+    if tab_share:
         with tab_share:
-            st.header("📲 Enviar Evaluación Remota por WhatsApp")
-            st.markdown("Genera un enlace seguro para que el Evaluador complete el formulario sin acceder al sistema completo.")
+            st.header("📲 Compartir Evaluación por WhatsApp")
+            st.info("Genera un enlace único y aislado para que el jefe directo complete la evaluación de forma remota.")
 
-            token_seguro = base64.b64encode(str(cedula_empleado).encode('utf-8')).decode('utf-8')
-            base_url = "https://servinet.datovatenexuspro.com" 
+            token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
             
-            # El enlace ahora apunta a esta misma página, que actuará como router
-            url_evaluacion = f"{base_url}/2_🧠_Gestion_Inteligente?cedula={cedula_empleado}&token={token_seguro}"
+            # URL base de tu aplicación en Coolify
+            base_url = "https://servinet.datovatenexuspro.com"
 
-            st.success("✅ ¡Enlace generado!")
+            # Construye el enlace apuntando a la RAÍZ de la app con los parámetros
+            url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
+
             mensaje = (
-                f"Hola, te envío el enlace para la Evaluación de Desempeño de *{seleccion}*.\n\n"
-                f"Por favor ingresa al siguiente enlace para completarla (no requiere contraseña):\n"
-                f"{url_evaluacion}\n\n"
-                f"Gracias,\n*Gestión Humana - SERVINET*"
+                f"Hola, soy CAROLINA PEREZ. Te envío el link para realizar la evaluación de desempeño de *{seleccion}*.\n\n"
+                f"Por favor, completa todos los campos y guarda los cambios al finalizar. ¡Gracias!\n\n"
+                f"Enlace: {url_evaluacion}"
             )
-
-            st.text_area("Mensaje a enviar:", value=mensaje, height=150)
+            
             mensaje_encoded = urllib.parse.quote(mensaje)
             whatsapp_link = f"https://web.whatsapp.com/send?text={mensaje_encoded}"
 
+            st.markdown(f"**Enlace de evaluación para {seleccion}:**")
+            st.code(url_evaluacion, language="text")
             st.markdown(f'''
                 <a href="{whatsapp_link}" target="_blank" style="
-                    display: inline-block; text-align: center;
-                    padding: 12px 20px; background-color: #25D366; color: white; 
-                    text-decoration: none; border-radius: 8px; font-weight: bold;">
-                    📤 Enviar por WhatsApp
+                    display: inline-block;
+                    padding: 12px 20px;
+                    background-color: #25D366;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    text-align: center;">
+                    💬 Abrir en WhatsApp Web
                 </a>
             ''', unsafe_allow_html=True)
+            st.success("Haz clic en el botón para abrir WhatsApp Web con el mensaje y el enlace listos para ser enviados.")
