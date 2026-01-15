@@ -73,7 +73,7 @@ def create_manual_pdf_from_template(data, cargo, empleado=None):
     HTML(string=html_content).write_pdf(abs_path)
     return abs_path
 
-def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, filename="Organigrama_Cargos.pdf"):
+def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=None, filename="Organigrama_Cargos.pdf"):
     """
     cargos_info: lista de dicts con keys: cargo, departamento, descripcion, empleados (lista)
     descripcion_general: texto generado por IA
@@ -156,7 +156,7 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores, fi
     html_content = template.render(
         cargos_info=cargos_info,
         descripcion_general=descripcion_general,
-        leyenda_colores=None
+        leyenda_colores=leyenda_colores
     )
     HTML(string=html_content).write_pdf(filename)
     return filename
