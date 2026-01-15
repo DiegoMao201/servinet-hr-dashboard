@@ -122,7 +122,8 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=Non
 </div>
 """
 
-# ...dentro del botón para generar PDF...
+# EJEMPLO DE USO (colócalo en tu página, no aquí):
+
 cargos_info = []
 for _, row in df_cargos.iterrows():
     desc_cargo = "Descripción no generada."
