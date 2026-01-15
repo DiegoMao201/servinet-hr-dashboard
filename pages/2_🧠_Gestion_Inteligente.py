@@ -176,7 +176,21 @@ if seleccion:
             st.info("Genera un enlace para que el jefe directo complete la evaluación de forma remota.")
 
             token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
-            base_url = "https://servinet-hr-dashboard.streamlit.app" # URL de tu app desplegada
+            
+            # --- MEJORA CLAVE PARA PRODUCCIÓN EN COOLIFY ---
+            # Esta sección obtiene la URL pública de tu app automáticamente.
+            try:
+                from streamlit.web.server.server_util import get_server_url
+                # Esta es la forma moderna y recomendada
+                base_url = get_server_url()
+            except ImportError:
+                # Fallback para versiones más antiguas de Streamlit
+                from streamlit.runtime.scriptrunner import get_script_run_ctx
+                ctx = get_script_run_ctx()
+                base_url = f"http://{ctx.request.host}"
+
+            # Construye el enlace completo y dinámico
+            # Apunta a la página correcta usando el nombre del archivo
             url_evaluacion = f"{base_url}/2_🧠_Gestion_Inteligente?evaluar_cedula={cedula_empleado}&token={token_seguro}"
 
             mensaje = (

@@ -20,14 +20,14 @@ def get_secret(key, section=None):
 
 def is_valid_evaluation_link():
     """Verifica si la URL actual es un enlace de evaluación válido."""
-    params = st.query_params
-    cedula = params.get("evaluar_cedula", [None])[0]
-    token = params.get("token", [None])[0]
-
-    if not cedula or not token:
-        return False
-
     try:
+        params = st.query_params
+        cedula = params.get("evaluar_cedula", [None])[0]
+        token = params.get("token", [None])[0]
+
+        if not cedula or not token:
+            return False
+
         # Recreamos el token esperado para validarlo
         expected_token = base64.b64encode(str(cedula).encode()).decode()
         return token == expected_token
@@ -38,16 +38,18 @@ def check_password():
     """
     Retorna True si el usuario está logueado o si accede mediante un enlace de evaluación válido.
     """
-    # Si ya está logueado en la sesión, permite el acceso
+    # --- LÓGICA DE ACCESO INTELIGENTE ---
+    # 1. Si el usuario ya está logueado en la sesión, permite el acceso.
     if st.session_state.get("password_correct", False):
         return True
 
-    # Si es un enlace de evaluación válido, permite el acceso y marca la sesión como correcta
+    # 2. SI NO ESTÁ LOGUEADO, revisa si es un enlace de evaluación válido.
     if is_valid_evaluation_link():
+        # Si es válido, le damos acceso para esta única vez y lo marcamos como logueado.
         st.session_state["password_correct"] = True
         return True
 
-    # Si no es ninguna de las anteriores, muestra el formulario de login
+    # 3. Si no es ninguna de las anteriores, muestra el formulario de login normal.
     st.header("🔒 Acceso Restringido - SERVINET")
     password_input = st.text_input("Ingrese contraseña de acceso", type="password")
 
