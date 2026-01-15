@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 
 def get_secret(key, section=None):
     """
@@ -17,18 +18,40 @@ def get_secret(key, section=None):
         env_key = f"{section.upper()}_{key.upper()}" if section else key.upper()
         return os.environ.get(env_key)
 
+def is_valid_evaluation_link():
+    """Verifica si la URL actual es un enlace de evaluación válido."""
+    params = st.query_params
+    cedula = params.get("evaluar_cedula", [None])[0]
+    token = params.get("token", [None])[0]
+
+    if not cedula or not token:
+        return False
+
+    try:
+        # Recreamos el token esperado para validarlo
+        expected_token = base64.b64encode(str(cedula).encode()).decode()
+        return token == expected_token
+    except Exception:
+        return False
+
 def check_password():
-    """Retorna True si el usuario está logueado correctamente."""
-    
+    """
+    Retorna True si el usuario está logueado o si accede mediante un enlace de evaluación válido.
+    """
+    # Si ya está logueado en la sesión, permite el acceso
     if st.session_state.get("password_correct", False):
         return True
 
+    # Si es un enlace de evaluación válido, permite el acceso y marca la sesión como correcta
+    if is_valid_evaluation_link():
+        st.session_state["password_correct"] = True
+        return True
+
+    # Si no es ninguna de las anteriores, muestra el formulario de login
     st.header("🔒 Acceso Restringido - SERVINET")
     password_input = st.text_input("Ingrese contraseña de acceso", type="password")
 
     if st.button("Ingresar"):
-        # Buscamos la contraseña correcta
-        # En Coolify la variable se llamará: PASSWORDS_ADMIN
         correct_password = get_secret("admin", section="passwords")
         
         if correct_password and password_input == correct_password:
