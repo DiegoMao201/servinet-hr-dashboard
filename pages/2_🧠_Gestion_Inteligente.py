@@ -173,17 +173,15 @@ if seleccion:
     if tab_share:
         with tab_share:
             st.header("📲 Compartir Evaluación por WhatsApp")
-            st.info("Genera un enlace para que el jefe directo complete la evaluación de forma remota.")
+            st.info("Genera un enlace único y aislado para que el jefe directo complete la evaluación de forma remota.")
 
             token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
             
-            # --- MEJORA CLAVE PARA PRODUCCIÓN EN COOLIFY (CORREGIDO) ---
-            # Esta sección obtiene la URL pública de tu app automáticamente.
+            # URL base de tu aplicación en Coolify
             base_url = "https://servinet.datovatenexuspro.com"
 
-            # Construye el enlace completo y dinámico
-            # Apunta a la página correcta usando el nombre del archivo
-            url_evaluacion = f"{base_url}/2_🧠_Gestion_Inteligente?evaluar_cedula={cedula_empleado}&token={token_seguro}"
+            # Construye el enlace apuntando a la página oculta "_evaluar"
+            url_evaluacion = f"{base_url}/_evaluar?cedula={cedula_empleado}&token={token_seguro}"
 
             mensaje = (
                 f"Hola, soy CAROLINA PEREZ. Te envío el link para realizar la evaluación de desempeño de *{seleccion}*.\n\n"

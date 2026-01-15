@@ -91,20 +91,18 @@ def init_memory():
         spreadsheet = client.open_by_key(SPREADSHEET_ID)
         
         try:
-            # Intentamos abrir la hoja
             worksheet = spreadsheet.worksheet("MEMORIA_IA")
-        except:
-            # Si falla, la creamos
+        except gspread.WorksheetNotFound:
             worksheet = spreadsheet.add_worksheet(title="MEMORIA_IA", rows=100, cols=5)
-            # Encabezados
-            worksheet.append_row(["CARGO", "TIPO_DOC", "CONTENIDO", "FECHA_ACTUALIZACION"])
+            # Cambiamos "CARGO" por un ID más genérico
+            worksheet.append_row(["ID_UNICO", "TIPO_DOC", "CONTENIDO", "FECHA_ACTUALIZACION"])
             
         return worksheet
     except Exception as e:
         st.error(f"Error iniciando memoria: {e}")
         return None
 
-def get_saved_content(cargo, tipo_doc):
+def get_saved_content(id_unico, tipo_doc):
     """
     Busca si ya existe un documento guardado para este cargo.
     tipo_doc puede ser: 'PERFIL' o 'EVALUACION'
@@ -119,9 +117,9 @@ def get_saved_content(cargo, tipo_doc):
         
         if df.empty: return None
         
-        # Buscamos coincidencia exacta
+        # Buscamos coincidencia exacta por ID_UNICO
         resultado = df[
-            (df['CARGO'].astype(str).str.upper() == cargo.upper()) & 
+            (df['ID_UNICO'].astype(str).str.upper() == str(id_unico).upper()) & 
             (df['TIPO_DOC'] == tipo_doc)
         ]
         
@@ -132,36 +130,30 @@ def get_saved_content(cargo, tipo_doc):
     except Exception as e:
         return None
 
-def save_content_to_memory(cargo, tipo_doc, contenido):
-    """Guarda o actualiza el contenido en la hoja de memoria."""
+def save_content_to_memory(id_unico, tipo_doc, contenido):
+    """Guarda o actualiza el contenido en la hoja de memoria usando un ID único."""
     try:
         worksheet = init_memory()
         if not worksheet: return
         
-        # Buscar celda si ya existe para actualizar, o crear nueva
-        cell = worksheet.find(cargo) # Búsqueda simple
+        import datetime
+        fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Para hacerlo robusto y simple: borramos lo viejo si existe y ponemos lo nuevo
-        # (Nota: En producción real haríamos update, aquí append es más seguro para empezar)
-        
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Verificar si ya existe esa combinación exacta para no duplicar filas infinitamente
         all_records = worksheet.get_all_records()
-        row_index = None
+        row_index_to_update = None
         
         for idx, row in enumerate(all_records):
-            if row['CARGO'].upper() == cargo.upper() and row['TIPO_DOC'] == tipo_doc:
-                row_index = idx + 2 # +2 porque Sheets empieza en 1 y hay header
+            if str(row.get('ID_UNICO', '')).upper() == str(id_unico).upper() and row.get('TIPO_DOC') == tipo_doc:
+                row_index_to_update = idx + 2 # +2 porque Sheets empieza en 1 y hay header
                 break
         
-        if row_index:
+        if row_index_to_update:
             # Actualizar fila existente
-            worksheet.update_cell(row_index, 3, contenido) # Columna 3 es CONTENIDO
-            worksheet.update_cell(row_index, 4, fecha)
+            worksheet.update_cell(row_index_to_update, 3, contenido) # Columna 3 es CONTENIDO
+            worksheet.update_cell(row_index_to_update, 4, fecha)
         else:
             # Crear nueva fila
-            worksheet.append_row([cargo.upper(), tipo_doc, contenido, fecha])
+            worksheet.append_row([str(id_unico).upper(), tipo_doc, contenido, fecha])
             
     except Exception as e:
         st.error(f"Error guardando en memoria: {e}")
