@@ -109,30 +109,23 @@ if seleccion:
                 st.warning("⚠️ No existe un manual para este cargo o se forzará la regeneración.")
                 if st.button("✨ Generar Manual de Funciones con IA", key=f"gen_manual_{cedula_empleado}"):
                     with st.spinner("Redactando documento oficial con IA... (Esto puede tardar un minuto)"):
-                        perfil_html = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
+                        # La IA ahora genera un bloque de HTML con todas las secciones
+                        perfil_html_completo = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
                         
-                        def get_section(html, keyword):
-                            pattern = rf"{keyword}(.*?)(<div class=\"section-title\"|$)"
-                            match = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
-                            return match.group(1).strip() if match else ""
-
                         now = datetime.datetime.now()
-                        # Verificar ruta de logo para el PDF
                         logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
                         
                         datos_plantilla = {
                             "empresa": "GRUPO SERVINET", 
                             "logo_url": logo_path,
-                            "codigo_doc": f"DOC-MF-{cedula_empleado}", "departamento": datos_empleado.get("DEPARTAMENTO", ""),
-                            "version": "1.0", "vigencia": f"Año {now.year}", "fecha_emision": now.strftime("%d/%m/%Y"),
-                            "empleado": seleccion, "cargo": cargo_empleado,
-                            "objetivo_cargo": get_section(perfil_html, "🎯 Objetivo del Cargo"),
-                            "funciones_principales": get_section(perfil_html, "📜 Funciones Principales"),
-                            "procesos_clave": get_section(perfil_html, "🔄 Procesos Clave"),
-                            "habilidades_blandas": get_section(perfil_html, "💡 Habilidades Blandas"),
-                            "kpis_sugeridos": get_section(perfil_html, "📊 KPIs Sugeridos"),
-                            "perfil_ideal": get_section(perfil_html, "🏅 Perfil Ideal"),
-                            "observaciones": get_section(perfil_html, "📝 Observaciones"),
+                            "codigo_doc": f"DOC-MF-{cedula_empleado}", 
+                            "departamento": datos_empleado.get("DEPARTAMENTO", ""),
+                            "version": "1.0", 
+                            "vigencia": f"Año {now.year}", 
+                            "fecha_emision": now.strftime("%d/%m/%Y"),
+                            "cargo": cargo_empleado,
+                            # MEJORA: Pasamos el bloque de HTML completo a la plantilla
+                            "perfil_html": perfil_html_completo
                         }
                         
                         pdf_filename = create_manual_pdf_from_template(datos_plantilla, cargo_empleado, empleado=seleccion)

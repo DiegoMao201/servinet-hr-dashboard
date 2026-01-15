@@ -64,13 +64,24 @@ def extract_section(html, section_title):
     return ""
 
 def create_manual_pdf_from_template(data, cargo, empleado=None):
+    """
+    MEJORA: Utiliza una plantilla Jinja2 profesional y pasa el HTML de la IA
+    directamente para que el CSS de la plantilla lo estilice.
+    """
     template_dir = os.path.dirname(__file__)
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template("manual_template.html")
+
+    # El diccionario 'data' ya contiene 'perfil_html' con todas las secciones.
+    # Simplemente lo pasamos a la plantilla.
     html_content = template.render(**data)
+    
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
     abs_path = os.path.abspath(filename)
-    HTML(string=html_content).write_pdf(abs_path)
+    
+    # WeasyPrint hace la magia de convertir el HTML y CSS en un PDF profesional.
+    HTML(string=html_content, base_url=template_dir).write_pdf(abs_path)
+    
     return abs_path
 
 def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=None, filename="Organigrama_Cargos.pdf"):
