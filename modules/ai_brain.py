@@ -1,198 +1,191 @@
 import streamlit as st
-from modules.database import get_employees, save_content_to_memory, get_saved_content
-from modules.document_reader import get_company_context
-from modules.ai_brain import generate_role_profile_by_sections, generate_evaluation, analyze_results
-from modules.drive_manager import (
-    get_or_create_manuals_folder,
-    find_manual_in_drive,
-    download_manual_from_drive,
-    upload_manual_to_drive
-)
-from modules.pdf_generator import create_manual_pdf_from_template
-import os
-import pandas as pd
-import re
-import datetime
+import openai
 import json
-import base64
-import urllib.parse
+import os
 
-st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
+# Configuración de la API Key
+api_key = os.environ.get("OPENAI_API_KEY")
+if not api_key and "openai" in st.secrets:
+    api_key = st.secrets["openai"]["api_key"]
 
-st.image("logo_servinet.jpg", width=120)
-st.title("🧠 Talent AI - SERVINET")
-st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
+client = openai.OpenAI(api_key=api_key) if api_key else None
 
-# --- CARGA DE DATOS Y CONTEXTO ---
-manuals_folder_id = get_or_create_manuals_folder()
+def generate_role_profile_by_sections(cargo, company_context):
+    """
+    Genera el manual de funciones por secciones, garantizando que no falte ninguna.
+    CORREGIDO: Se toma control de la generación del título para evitar que el prompt se filtre.
+    """
+    if not client:
+        return "⚠️ Error: Falta configurar OPENAI_API_KEY."
 
-if "company_context" not in st.session_state:
-    with st.spinner("🤖 La IA está leyendo tus manuales y PDFs... (Esto toma unos segundos)"):
-        st.session_state["company_context"] = get_company_context(manuals_folder_id)
-        if st.session_state["company_context"]:
-            st.success("¡Contexto cargado! La IA ya conoce a Servinet.")
-        else:
-            st.warning("No se encontraron manuales para crear el contexto. La IA funcionará con conocimiento general.")
+    secciones = [
+        ("🎯 Objetivo del Cargo", "Redacta el objetivo estratégico del cargo en 2-3 líneas, resaltando su importancia para la empresa."),
+        ("📜 Funciones Principales", "Lista las funciones principales del cargo, usando viñetas y subtítulos si aplica."),
+        ("🔄 Procesos Clave", "Describe los procesos clave del cargo en una tabla o lista, con breve descripción de cada proceso."),
+        ("🗺️ Mapa de Procesos", "Crea un diagrama textual o tabla que muestre las relaciones entre procesos y áreas para este cargo."),
+        ("🧩 Matriz de Competencias", "Genera una tabla con competencias técnicas y blandas, nivel requerido y nivel actual promedio en la empresa."),
+        ("💡 Habilidades Blandas Requeridas", "Lista las habilidades blandas requeridas, con ejemplos y casos prácticos."),
+        ("🏆 Habilidades Técnicas Requeridas", "Lista y tabla con certificaciones, herramientas y tecnologías necesarias."),
+        ("📊 KPIs Sugeridos", "Crea una tabla HTML con las columnas: KPI, Fórmula/Descripción, Meta, Frecuencia."),
+        ("🏅 Perfil Ideal", "Describe el perfil ideal: formación, experiencia, competencias, en tabla o lista."),
+        ("🧠 Análisis de Riesgos", "Identifica riesgos operativos, humanos y tecnológicos asociados al cargo."),
+        ("🚦 Alertas y Recomendaciones", "Resalta sugerencias de mejora, puntos críticos y alertas de gestión."),
+        ("🔍 Diagnóstico Comparativo", "Compara el cargo con roles similares en el sector, identifica brechas y oportunidades."),
+        ("📝 Observaciones y recomendaciones finales", "Resalta sugerencias de mejora y puntos críticos."),
+        ("📚 Referencias y fuentes", "Lista de documentos, manuales y políticas internas usadas como base."),
+    ]
 
-df = get_employees()
-if df.empty:
-    st.error("No se pudieron cargar los datos de los empleados.")
-    st.stop()
+    contexto_limitado = company_context[:4000]
+    manual_html = ""
 
-# --- LÓGICA PARA ENLACES COMPARTIDOS (SE MANTIENE IGUAL) ---
-params = st.query_params
-empleado_cedula_link = params.get("evaluar_cedula", [None])[0]
-token_link = params.get("token", [None])[0]
-empleado_seleccionado_por_link = None
+    for titulo_seccion, instruccion in secciones:
+        prompt = f"""
+Eres un consultor experto en RRHH para Servinet, una empresa de telecomunicaciones.
+Contexto de la empresa: {contexto_limitado}
+Cargo a analizar: "{cargo}"
 
-if empleado_cedula_link and token_link:
-    expected_token = base64.b64encode(str(empleado_cedula_link).encode()).decode()
-    if token_link == expected_token:
-        empleado_encontrado = df[df['CEDULA'].astype(str) == str(empleado_cedula_link)]
-        if not empleado_encontrado.empty:
-            empleado_seleccionado_por_link = empleado_encontrado.iloc[0]['NOMBRE COMPLETO']
+TAREA:
+Genera únicamente el contenido para la sección "{titulo_seccion}".
+Instrucción específica: {instruccion}
 
-# --- SELECCIÓN DE EMPLEADO (INTERFAZ PRINCIPAL) ---
-st.markdown("---")
-st.subheader("Selección de Colaborador")
-
-if empleado_seleccionado_por_link:
-    st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Iniciado por enlace compartido)")
-    seleccion = empleado_seleccionado_por_link
-else:
-    empleados_lista = [""] + sorted(df['NOMBRE COMPLETO'].unique())
-    seleccion = st.selectbox("Seleccione un colaborador para gestionar:", empleados_lista)
-
-# --- FLUJO PRINCIPAL ---
-if seleccion:
-    datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
-    cargo_empleado = datos_empleado['CARGO']
-    cedula_empleado = datos_empleado['CEDULA']
-
-    tab_titles = ["📄 Manual de Funciones", "📝 Evaluación", "📈 Resultados y Plan de Acción", "🔗 Compartir por WhatsApp"]
-   
-    if empleado_seleccionado_por_link:
-        tabs = st.tabs([tab_titles[1]])
-        tab_manual, tab_eval, tab_resultados, tab_share = (None, tabs[0], None, None)
-    else:
-        tabs = st.tabs(tab_titles)
-        tab_manual, tab_eval, tab_resultados, tab_share = tabs
-
-    # --- PESTAÑA 1: MANUAL DE FUNCIONES ---
-    if tab_manual:
-        with tab_manual:
-            st.header(f"Manual de Funciones para: {cargo_empleado}")
-            st.markdown(f"**Colaborador:** {seleccion} | **Departamento:** {datos_empleado.get('DEPARTAMENTO', '--')}")
-           
-            force_regen = st.checkbox("Forzar nueva generación de manual (sobrescribe el anterior)", key=f"regen_{cedula_empleado}")
-            manual_file_id = find_manual_in_drive(cargo_empleado, manuals_folder_id)
-
-            if manual_file_id and not force_regen:
-                st.success("✅ Manual encontrado en Drive para este cargo.")
-                pdf_bytes = download_manual_from_drive(manual_file_id)
-                st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{cargo_empleado.replace(' ', '_')}.pdf", "application/pdf")
-            else:
-                st.warning("⚠️ No existe un manual para este cargo o se forzará la regeneración.")
-                if st.button("✨ Generar Manual de Funciones con IA", key=f"gen_manual_{cedula_empleado}"):
-                    with st.spinner("Redactando documento oficial con IA... (Esto puede tardar un minuto)"):
-                        perfil_html = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
-                       
-                        now = datetime.datetime.now()
-                        logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
-                        
-                        # CORRECCIÓN: Se pasa un string genérico en lugar del nombre del empleado
-                        datos_plantilla = {
-                            "empresa": "GRUPO SERVINET", 
-                            "logo_url": logo_path,
-                            "codigo_doc": f"DOC-MF-{cargo_empleado.replace(' ', '_').upper()}", 
-                            "departamento": datos_empleado.get("DEPARTAMENTO", ""),
-                            "version": "1.0", 
-                            "vigencia": f"Año {now.year}", 
-                            "fecha_emision": now.strftime("%d/%m/%Y"),
-                            "empleado": "Según Asignación", # <-- CAMBIO CLAVE: Ya no se usa el nombre
-                            "cargo": cargo_empleado,
-                            "objetivo_cargo": re.search(r"🎯 Objetivo del Cargo</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"🎯 Objetivo del Cargo", perfil_html) else "",
-                            "funciones_principales": re.search(r"📜 Funciones Principales</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"📜 Funciones Principales", perfil_html) else "",
-                            "procesos_clave": re.search(r"🔄 Procesos Clave</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"🔄 Procesos Clave", perfil_html) else "",
-                            "habilidades_blandas": re.search(r"💡 Habilidades Blandas Requeridas</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"💡 Habilidades Blandas Requeridas", perfil_html) else "",
-                            "kpis_sugeridos": re.search(r"📊 KPIs Sugeridos</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"📊 KPIs Sugeridos", perfil_html) else "",
-                            "perfil_ideal": re.search(r"🏅 Perfil Ideal</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"🏅 Perfil Ideal", perfil_html) else "",
-                            "observaciones": re.search(r"📝 Observaciones y recomendaciones finales</div>(.*?)</div>", perfil_html, re.S).group(1).strip() if re.search(r"📝 Observaciones y recomendaciones finales", perfil_html) else "",
-                        }
-                       
-                        # CORRECCIÓN: Se quita el nombre del empleado del nombre del archivo
-                        pdf_filename = create_manual_pdf_from_template(datos_plantilla, cargo_empleado)
-                        upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
-                       
-                        with open(pdf_filename, "rb") as f:
-                            st.download_button("📥 Descargar Manual PDF Generado", f.read(), os.path.basename(pdf_filename), "application/pdf")
-                        st.success("Manual generado y guardado en Drive.")
-
-    # --- PESTAÑA 2: EVALUACIÓN DE DESEMPEÑO (SE MANTIENE IGUAL) ---
-    if tab_eval:
-        with tab_eval:
-            st.header(f"Evaluación de Desempeño para: {seleccion} ({cargo_empleado})")
-            st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
-
-            with st.spinner("🧠 La IA está generando un formulario de evaluación a medida..."):
-                eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
-           
-            if not eval_form_data.get("preguntas"):
-                st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
-            else:
-                with st.form(f"form_eval_{cedula_empleado}"):
-                    respuestas = {}
-                    st.markdown("#### Cuestionario de Evaluación")
-                    for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
-                        respuestas[f"preg_{idx}"] = st.radio(f"{idx+1}. {pregunta.get('texto')}", pregunta.get("opciones"), key=f"preg_{idx}_{cedula_empleado}", horizontal=True)
-                   
-                    comentarios_evaluador = st.text_area("Comentarios del Evaluador (Fortalezas y Áreas de Mejora):", key=f"comentarios_{cedula_empleado}")
-                    enviado = st.form_submit_button("💾 Guardar Evaluación", use_container_width=True)
-
-                if enviado:
-                    with st.spinner("Guardando respuestas..."):
-                        contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
-                        save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
-                        st.success("✅ Evaluación registrada correctamente.")
-                        st.balloons()
-
-    # --- PESTAÑA 3: RESULTADOS Y PLAN DE ACCIÓN (SE MANTIENE IGUAL) ---
-    if tab_resultados:
-        with tab_resultados:
-            st.header(f"Análisis de Desempeño: {seleccion}")
-            contenido_guardado = get_saved_content(str(cedula_empleado), "EVALUACION")
-            if contenido_guardado:
-                st.info("Mostrando el análisis de la última evaluación guardada para este empleado.")
-                with st.spinner("La IA está analizando los resultados..."):
-                    analisis = analyze_results(contenido_guardado)
-                    st.markdown(analisis, unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ No hay una evaluación guardada para este empleado.")
-
-    # --- PESTAÑA 4: COMPARTIR POR WHATSAPP (SE MANTIENE IGUAL) ---
-    if tab_share:
-        with tab_share:
-            st.header("📲 Compartir Evaluación por WhatsApp")
-            st.info("Genera un enlace único y aislado para que el jefe directo complete la evaluación de forma remota.")
-
-            token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
-            base_url = "https://servinet.datovatenexuspro.com"
-            url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
-
-            mensaje = (
-                f"Hola, soy CAROLINA PEREZ. Te envío el link para realizar la evaluación de desempeño de *{seleccion}*.\n\n"
-                f"Por favor, completa todos los campos y guarda los cambios al finalizar. ¡Gracias!\n\n"
-                f"Enlace: {url_evaluacion}"
+REGLAS ESTRICTAS:
+- Tu respuesta debe ser solo el contenido HTML (listas, tablas, párrafos).
+- NO incluyas el título de la sección en tu respuesta.
+- NO incluyas las etiquetas ```html, <html>, <body>.
+- Si no tienes información, genera contenido genérico y profesional para el cargo.
+"""
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
             )
-           
-            mensaje_encoded = urllib.parse.quote(mensaje)
-            whatsapp_link = f"https://web.whatsapp.com/send?text={mensaje_encoded}"
+            content = response.choices[0].message.content.replace("```html", "").replace("```", "").strip()
+            
+            # Construimos la sección aquí, fuera de la IA, para tener control total
+            manual_html += f'<div class="section">\n'
+            manual_html += f'  <div class="section-title">{titulo_seccion}</div>\n'
+            manual_html += f'  {content}\n'
+            manual_html += f'</div>\n'
 
-            st.markdown(f"**Enlace de evaluación para {seleccion}:**")
-            st.code(url_evaluacion, language="text")
-            st.markdown(f'''
-                <a href="{whatsapp_link}" target="_blank" style="display: inline-block; padding: 12px 20px; background-color: #25D366; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center;">
-                    💬 Abrir en WhatsApp Web
-                </a>
-            ''', unsafe_allow_html=True)
-            st.success("Haz clic en el botón para abrir WhatsApp Web con el mensaje y el enlace listos para ser enviados.")
+        except Exception as e:
+            manual_html += f'<div class="section"><div class="section-title">{titulo_seccion}</div><p>Error al generar contenido: {e}</p></div>\n'
+            
+    return manual_html
+
+# --- El resto de las funciones se mantienen intactas ---
+
+def generate_evaluation(cargo, company_context):
+    """
+    Crea una super evaluación de desempeño (mínimo 30 preguntas, selección múltiple/Likert).
+    """
+    if not client: return {}
+
+    prompt = f"""
+Eres experto en psicometría y recursos humanos. Basado en los manuales y contexto de Servinet, diseña una evaluación de desempeño para el cargo "{cargo}".
+REQUISITOS:
+- Mínimo 30 preguntas (pueden ser más).
+- Todas las preguntas deben ser de selección (NO abiertas), usando escala Likert de 1 a 5 o selección múltiple.
+- Cubre: habilidades técnicas, blandas, clima laboral, liderazgo, KPIs, pertenencia, satisfacción, comunicación, innovación, cumplimiento, etc.
+- Entrega un JSON con la siguiente estructura EXACTA:
+{{
+  "preguntas": [
+    {{
+      "texto": "Pregunta 1...",
+      "tipo": "likert",  // o "multiple"
+      "opciones": ["1 - Nunca", "2 - Rara vez", "3 - A veces", "4 - Frecuentemente", "5 - Siempre"]
+    }},
+    ...
+  ]
+}}
+NO incluyas preguntas abiertas. Haz las preguntas claras, variadas y relevantes para el cargo.
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        st.error(f"Error generando evaluación: {e}")
+        return {"preguntas": []}
+
+def analyze_results(respuestas_json):
+    """
+    Analiza las respuestas del empleado.
+    Modelo: gpt-4o-mini
+    """
+    if not client: return "Error de configuración."
+
+    prompt = f"""
+    Analiza estos resultados de evaluación de desempeño de un empleado de Servinet:
+    {respuestas_json}
+    
+    Genera un reporte ejecutivo en formato Markdown que incluya:
+    1. 🏆 Nivel de competencia (0-100%).
+    2. 🧠 Estado emocional y nivel de estrés percibido.
+    3. 🎓 Plan de Capacitación (3 temas urgentes y prácticos).
+    4. ⚠️ Alerta de Retención (¿Riesgo de renuncia? Bajo/Medio/Alto).
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", # <--- MODELO ECONÓMICO
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error analizando resultados: {e}"
+
+# La función generate_role_profile original ya no es necesaria si usas la de secciones,
+# pero la dejamos por si la usas en otro lado.
+def generate_role_profile(cargo, company_context, force=False):
+    """
+    Crea el Manual de Funciones personalizado, ahora mucho más completo y analítico.
+    """
+    if not client:
+        return "⚠️ Error: Falta configurar OPENAI_API_KEY."
+
+    prompt = f"""
+    Eres consultor senior en Recursos Humanos, experto en Normas ISO, gestión de talento, análisis organizacional y transformación digital en empresas de telecomunicaciones como SERVINET.
+    CONTEXTO DE LA EMPRESA (Manuales, cultura, procesos, informes, estructura, diagnósticos, etc.):
+    {company_context[:4000]}
+    TAREA:
+    Redacta un manual de funciones empresarial, profesional y EXTREMADAMENTE COMPLETO para el cargo: "{cargo}".
+    El resultado debe ser HTML limpio, visualmente atractivo y corporativo, usando colores azul, gris y amarillo, tablas, listas, iconos y títulos claros.
+    Estructura el documento en las siguientes secciones (usa emojis y títulos grandes):
+
+    1. 🎯 Objetivo del Cargo (estratégico, 2-3 líneas, resaltado).
+    2. 📜 Funciones Principales (lista con viñetas y subtítulos si aplica).
+    3. 🔄 Procesos Clave (tabla o lista, con breve descripción de cada proceso).
+    4. 🗺️ Mapa de Procesos (diagrama textual o tabla de relaciones entre procesos y áreas).
+    5. 🧩 Matriz de Competencias (tabla con competencias técnicas y blandas, nivel requerido y nivel actual promedio en la empresa).
+    6. 💡 Habilidades Blandas Requeridas (lista con ejemplos y casos prácticos).
+    7. 🏆 Habilidades Técnicas Requeridas (lista y tabla con certificaciones, herramientas y tecnologías).
+    8. 📊 KPIs Sugeridos (tabla con nombre del KPI, objetivo, frecuencia de medición y responsable).
+    9. 🏅 Perfil Ideal (formación, experiencia, competencias, en tabla o lista).
+    10. 🧠 Análisis de Riesgos (identifica riesgos operativos, humanos y tecnológicos asociados al cargo).
+    11. 🚦 Alertas y Recomendaciones (resalta sugerencias de mejora, puntos críticos y alertas de gestión).
+    12. 🔍 Diagnóstico Comparativo (compara el cargo con roles similares en el sector, identifica brechas y oportunidades).
+    13. 📝 Observaciones y recomendaciones finales (resalta sugerencias de mejora y puntos críticos).
+    14. 📚 Referencias y fuentes (lista de documentos, manuales y políticas internas usadas como base).
+
+    - Usa títulos grandes, separadores visuales, y resalta los puntos clave con colores corporativos.
+    - No incluyas encabezados HTML ni etiquetas <html>, <head> o <body>, solo el contenido de las secciones.
+    - Si tienes datos de la empresa, personaliza el manual con ejemplos reales, cifras, y recomendaciones específicas para SERVINET.
+    - Sé exhaustivo, analítico y profesional. El manual debe servir para onboarding, auditoría, capacitación y gestión estratégica.
+    NO omitas ninguna sección. Si no tienes información suficiente, crea algo corto pero empresarial dependiendo del cargo.
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        content = response.choices[0].message.content
+        return content.replace("```html", "").replace("```", "")
+    except Exception as e:
+        return f"Error generando perfil: {e}"

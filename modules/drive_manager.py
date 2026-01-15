@@ -1,48 +1,22 @@
 import streamlit as st
 import os
-import pickle
-import base64
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from modules.auth import get_google_creds  # <-- MEJORA: Import centralizado
+import io
 
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets"
-]
-
-def get_creds():
-    creds = None
-    token_b64 = os.environ.get("GOOGLE_TOKEN_PICKLE_B64")
-    if token_b64:
-        creds = pickle.loads(base64.b64decode(token_b64))
-    elif os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            secret_b64 = os.environ.get("GOOGLE_CLIENT_SECRET_JSON_B64")
-            if secret_b64:
-                secret_json = base64.b64decode(secret_b64).decode("utf-8")
-                with open("client_secret.json", "w", encoding="utf-8") as f:
-                    f.write(secret_json)
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "client_secret.json", SCOPES)
-            creds = flow.run_console()
-            with open('token.pickle', 'wb') as token:
-                pickle.dump(creds, token)
-    return creds
-
+@st.cache_resource(show_spinner="Conectando a Google Drive...")
 def get_drive_service():
-    creds = get_creds()
-    return build('drive', 'v3', credentials=creds)
+    """Obtiene el servicio de Drive usando las credenciales centralizadas."""
+    creds = get_google_creds()
+    if creds:
+        return build('drive', 'v3', credentials=creds)
+    st.error("Fallo en la autenticación con Google.")
+    return None
 
 def upload_manual_to_drive(file_path, folder_id):
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return None
     file_metadata = {
         'name': os.path.basename(file_path),
         'parents': [folder_id]
@@ -61,8 +35,8 @@ def upload_manual_to_drive(file_path, folder_id):
         return None
 
 def find_manual_in_drive(cargo, folder_id):
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return None
     filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
     query = (
         f"'{folder_id}' in parents and name='{filename}' and trashed=false"
@@ -77,12 +51,10 @@ def find_manual_in_drive(cargo, folder_id):
     return None
 
 def download_manual_from_drive(file_id):
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return b""
     request = service.files().get_media(fileId=file_id, supportsAllDrives=True)
-    import io
     fh = io.BytesIO()
-    from googleapiclient.http import MediaIoBaseDownload
     downloader = MediaIoBaseDownload(fh, request)
     done = False
     while not done:
@@ -94,8 +66,8 @@ def get_or_create_manuals_folder():
     """
     Busca o crea la subcarpeta 'MANUAL_FUNCIONES' dentro de 'SERVINET_APP_DATA' en Mi unidad.
     """
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return None
     # Busca la carpeta principal
     parent_query = "name='SERVINET_APP_DATA' and mimeType='application/vnd.google-apps.folder' and trashed=false"
     parent_results = service.files().list(q=parent_query, fields="files(id, name)").execute()
@@ -120,8 +92,8 @@ def get_or_create_manuals_folder():
 
 def upload_organigrama_to_drive(file_path, folder_id):
     """Sube el PDF del organigrama a Drive."""
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return None
     file_metadata = {
         'name': 'Organigrama_Cargos.pdf',
         'parents': [folder_id]
@@ -142,8 +114,8 @@ def upload_organigrama_to_drive(file_path, folder_id):
 
 def find_organigrama_in_drive(folder_id):
     """Busca el PDF del organigrama en Drive."""
-    creds = get_creds()
-    service = build('drive', 'v3', credentials=creds)
+    service = get_drive_service()
+    if not service: return None
     query = f"'{folder_id}' in parents and name='Organigrama_Cargos.pdf' and trashed=false"
     results = service.files().list(q=query, fields="files(id)").execute()
     files = results.get('files', [])
