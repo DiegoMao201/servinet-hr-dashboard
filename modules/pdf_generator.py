@@ -122,3 +122,21 @@ def export_organigrama_pdf(cargos_info, descripcion_general, leyenda_colores=Non
 </div>
 """
 
+# ...dentro del botón para generar PDF...
+cargos_info = []
+for _, row in df_cargos.iterrows():
+    desc_cargo = "Descripción no generada."
+    if openai_client:
+        try:
+            prompt_cargo = f"Describe brevemente en una línea el propósito del cargo '{row['CARGO']}' en el departamento '{row['DEPARTAMENTO']}' para una empresa de telecomunicaciones."
+            resp = openai_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt_cargo}], temperature=0.2)
+            desc_cargo = resp.choices[0].message.content.strip()
+        except Exception as e:
+            desc_cargo = f"Error IA: {e}"
+    cargos_info.append({
+        "cargo": row['CARGO'],
+        "departamento": row['DEPARTAMENTO'],
+        "descripcion": desc_cargo,
+        "empleados": row['NOMBRE_COMPLETO']  # Esto debe ser una lista, no string
+    })
+
