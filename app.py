@@ -1,6 +1,4 @@
 import streamlit as st
-from modules.auth import check_password
-from pages._evaluar import render_evaluation_page  # Importamos la función de renderizado
 
 # Configuración de página
 st.set_page_config(
@@ -9,108 +7,24 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- LÓGICA DE ENRUTAMIENTO PRINCIPAL (COMO EN TU OTRA APP) ---
-# 1. Lee los parámetros del link
-params = st.query_params
-token = params.get("token", [None])[0]
-cedula = params.get("cedula", [None])[0]
+# --- BIENVENIDA (Página principal) ---
+st.title("📡 Panel de Control RRHH - SERVINET")
+st.image("logo_servinet.jpg", width=180)
+st.markdown("---")
 
-# 2. Decide qué mostrar
-if token and cedula:
-    # SI EL LINK TIENE TOKEN Y CEDULA, ENTRA DIRECTO AQUÍ
-    # No pide contraseña, carga la interfaz de evaluación inmediatamente.
-    render_evaluation_page(cedula, token)
-else:
-    # SI NO TIENE LOS PARÁMETROS, PIDE LOGIN (Bloque de seguridad)
-    if not check_password():
-        st.stop()  # Si no hay login, detiene todo aquí.
-
-    # --- BIENVENIDA (Solo para usuarios logueados) ---
-    st.title("📡 Panel de Control RRHH - SERVINET")
-    st.image("logo_servinet.jpg", width=180)
-    st.markdown("---")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info("👋 **Bienvenido al sistema centralizado.**")
-        st.markdown("""
-        Desde aquí podrás:
-        * Visualizar el organigrama en tiempo real.
-        * Realizar evaluaciones de desempeño asistidas por IA.
-        * Consultar la base de datos de empleados.
-        """)
-    with col2:
-        st.warning("⚠️ **Estado del Sistema**")
-        st.success("✅ Conexión a Google Drive: ACTIVA")
-        st.success("✅ Motor de IA: LISTO")
-
-    st.markdown("---")
-    st.caption("Desarrollado para SERVINET - Versión 1.0")
-
-import streamlit as st
-import pandas as pd
-import json
-import base64
-from modules.database import get_employees, save_content_to_memory
-from modules.ai_brain import generate_evaluation
-
-def render_evaluation_page(cedula_empleado, token):
-    """
-    Esta función dibuja la página de evaluación completa.
-    """
-    # --- OCULTAR LA INTERFAZ DE STREAMLIT ---
+col1, col2 = st.columns(2)
+with col1:
+    st.info("👋 **Bienvenido al sistema centralizado.**")
     st.markdown("""
-        <style>
-            [data-testid="stSidebar"], [data-testid="main-menu"] { display: none; }
-            .main .block-container { padding-top: 2rem; }
-        </style>
-    """, unsafe_allow_html=True)
+    Seleccione una opción del menú de la izquierda para comenzar.
+    * Visualizar el organigrama en tiempo real.
+    * Realizar evaluaciones de desempeño asistidas por IA.
+    * Consultar la base de datos de empleados.
+    """)
+with col2:
+    st.warning("⚠️ **Estado del Sistema**")
+    st.success("✅ Conexión a Google Drive: ACTIVA")
+    st.success("✅ Motor de IA: LISTO")
 
-    st.image("logo_servinet.jpg", width=120)
-    st.title("Evaluación de Desempeño - SERVINET")
-
-    # --- VALIDACIÓN DEL ENLACE ---
-    try:
-        expected_token = base64.b64encode(str(cedula_empleado).encode()).decode()
-        if token != expected_token:
-            st.error("❌ Token de seguridad inválido. El enlace puede haber expirado o sido alterado.")
-            st.stop()
-    except Exception:
-        st.error("❌ Error al validar el enlace.")
-        st.stop()
-
-    # --- OBTENER DATOS Y MOSTRAR FORMULARIO ---
-    df = get_employees()
-    if df.empty:
-        st.error("No se pudo conectar con la base de datos de empleados."); st.stop()
-
-    empleado_data = df[df['CEDULA'].astype(str) == str(cedula_empleado)]
-    if empleado_data.empty:
-        st.error("Empleado no encontrado."); st.stop()
-
-    datos_empleado = empleado_data.iloc[0]
-    st.header(f"Evaluando a: {datos_empleado['NOMBRE COMPLETO']}")
-    st.subheader(f"Cargo: {datos_empleado['CARGO']}")
-    st.info("Por favor, complete todas las preguntas y guarde los cambios al finalizar.")
-    st.markdown("---")
-
-    with st.spinner("🧠 Generando formulario de evaluación..."):
-        eval_form_data = generate_evaluation(datos_empleado['CARGO'], "")
-
-    if not eval_form_data.get("preguntas"):
-        st.error("La IA no pudo generar el formulario. Recargue la página."); st.stop()
-
-    with st.form(f"form_eval_externa_{cedula_empleado}"):
-        respuestas = {}
-        for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
-            respuestas[f"preg_{idx}"] = st.radio(f"{idx+1}. {pregunta.get('texto')}", pregunta.get("opciones"), horizontal=True)
-        
-        comentarios_evaluador = st.text_area("Comentarios del Evaluador (Fortalezas y Áreas de Mejora):")
-        enviado = st.form_submit_button("✅ Finalizar y Guardar Evaluación", use_container_width=True)
-
-    if enviado:
-        with st.spinner("Guardando respuestas..."):
-            contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
-            save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
-            st.success("🎉 ¡Evaluación registrada con éxito! Gracias. Ya puede cerrar esta ventana.")
-            st.balloons()
+st.markdown("---")
+st.caption("Desarrollado para SERVINET - Versión 1.0")
