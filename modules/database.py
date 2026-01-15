@@ -75,30 +75,37 @@ def init_memory():
 
 def get_saved_content(id_unico, tipo_doc):
     """
-    Busca si ya existe un documento guardado para este cargo.
-    tipo_doc puede ser: 'PERFIL' o 'EVALUACION'
+    Busca si ya existe un documento guardado.
+    MEJORA: Normaliza el ID y agrega logs de depuración.
     """
     try:
         worksheet = init_memory()
-        if not worksheet: return None
+        if not worksheet: 
+            return None
         
-        # Leemos todo y filtramos con Pandas (más rápido y fácil)
+        # Leemos todo y filtramos con Pandas
         data = worksheet.get_all_records()
         df = pd.DataFrame(data)
         
-        if df.empty: return None
+        if df.empty: 
+            return None
         
-        # Buscamos coincidencia exacta por ID_UNICO
+        # MEJORA CLAVE: Normalizar ambos lados para comparación robusta
+        id_unico_norm = str(id_unico).strip().upper()
+        
+        # Buscamos coincidencia exacta
         resultado = df[
-            (df['ID_UNICO'].astype(str).str.upper() == str(id_unico).upper()) & 
-            (df['TIPO_DOC'] == tipo_doc)
+            (df['ID_UNICO'].astype(str).str.strip().str.upper() == id_unico_norm) & 
+            (df['TIPO_DOC'].astype(str).str.strip() == tipo_doc)
         ]
         
         if not resultado.empty:
             return resultado.iloc[0]['CONTENIDO']
+        
         return None
         
     except Exception as e:
+        st.error(f"Error buscando contenido en memoria: {e}")
         return None
 
 def save_content_to_memory(id_unico, tipo_doc, contenido):

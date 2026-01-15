@@ -4,6 +4,7 @@ import json
 import base64
 from modules.database import get_employees, save_content_to_memory, get_saved_content
 from modules.ai_brain import generate_evaluation
+import datetime
 
 def render_evaluation_page(cedula_empleado, token):
     """
@@ -46,20 +47,27 @@ def render_evaluation_page(cedula_empleado, token):
     st.markdown("---")
 
     # --- CARGAR FORMULARIO DESDE MEMORIA ---
+    # MEJORA: ID normalizado y consistente
     id_evaluacion = f"EVAL_FORM_{str(cedula_empleado).strip()}"
+    
     with st.spinner("🔍 Cargando formulario de evaluación..."):
         eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
     
     if eval_form_json:
-        eval_form_data = json.loads(eval_form_json)
+        try:
+            eval_form_data = json.loads(eval_form_json)
+            st.success("✅ Formulario cargado correctamente.")
+        except json.JSONDecodeError:
+            st.error("Error al decodificar el formulario.")
+            eval_form_data = None
     else:
-        # Fallback: Si no existe, lo genera y lo guarda
+        # Fallback: generar uno nuevo
         st.warning("No se encontró un formulario pre-generado. Creando uno nuevo...")
         eval_form_data = generate_evaluation(datos_empleado['CARGO'], "")
         if eval_form_data.get("preguntas"):
-            save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data))
+            save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data, ensure_ascii=False))
         else:
-            st.error("Error crítico: No se pudo generar el formulario. Contacte a RRHH.")
+            st.error("Error crítico: No se pudo generar el formulario.")
             st.stop()
 
     if not eval_form_data.get("preguntas"):
@@ -76,9 +84,19 @@ def render_evaluation_page(cedula_empleado, token):
 
     if enviado:
         with st.spinner("Guardando respuestas..."):
-            contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
-            save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
-            st.success("🎉 ¡Evaluación registrada con éxito! Gracias. Ya puede cerrar esta ventana.")
+            # MEJORA: ID diferente para respuestas
+            id_respuestas = f"EVAL_RESP_{str(cedula_empleado).strip()}"
+            contenido_evaluacion = {
+                "respuestas": respuestas, 
+                "comentarios": comentarios_evaluador,
+                "fecha": datetime.datetime.now().isoformat()
+            }
+            save_content_to_memory(
+                id_respuestas, 
+                "EVALUACION", 
+                json.dumps(contenido_evaluacion, ensure_ascii=False)
+            )
+            st.success("🎉 ¡Evaluación registrada con éxito!")
             st.balloons()
 
     # --- ANÁLISIS DE ERRORES ---

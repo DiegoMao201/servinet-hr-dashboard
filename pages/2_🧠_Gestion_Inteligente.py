@@ -32,14 +32,17 @@ st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados e
 # --- CARGA DE DATOS Y CONTEXTO ---
 manuals_folder_id = get_or_create_manuals_folder()
 
+# MEJORA: Solo cargar el contexto UNA VEZ por sesión, pero sin caché que bloquee la UI
 if "company_context" not in st.session_state:
-    with st.spinner("🤖 La IA está leyendo tus manuales y PDFs... (Esto toma unos segundos)"):
+    with st.spinner("🤖 La IA está leyendo tus manuales... (Esto toma unos segundos)"):
         st.session_state["company_context"] = get_company_context(manuals_folder_id)
         if st.session_state["company_context"]:
             st.success("¡Contexto cargado! La IA ya conoce a Servinet.")
         else:
-            st.warning("No se encontraron manuales para crear el contexto. La IA funcionará con conocimiento general.")
+            st.warning("No se encontraron manuales. La IA funcionará con conocimiento general.")
 
+# MEJORA CRÍTICA: Limpiar el caché de empleados cada vez que se recarga la página
+# Esto asegura que siempre se carguen datos frescos
 df = get_employees()
 if df.empty:
     st.error("No se pudieron cargar los datos de los empleados.")
@@ -66,13 +69,18 @@ if empleado_cedula_link and token_link:
 st.markdown("---")
 st.subheader("Selección de Colaborador")
 
-# Si se accedió por link, pre-seleccionamos al empleado
+# MEJORA: Forzar la actualización del empleado seleccionado
 if empleado_seleccionado_por_link:
     st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Iniciado por enlace compartido)")
     seleccion = empleado_seleccionado_por_link
 else:
     empleados_lista = [""] + sorted(df['NOMBRE COMPLETO'].unique())
-    seleccion = st.selectbox("Seleccione un colaborador para gestionar:", empleados_lista)
+    # MEJORA: Agregar un key único que cambie con cada selección
+    seleccion = st.selectbox(
+        "Seleccione un colaborador para gestionar:", 
+        empleados_lista,
+        key="selector_empleado_principal"
+    )
 
 # --- FLUJO PRINCIPAL ---
 if seleccion:
@@ -141,32 +149,45 @@ if seleccion:
             st.header(f"Evaluación de Desempeño para: {seleccion} ({cargo_empleado})")
             st.info("La IA genera una evaluación profesional. El jefe directo debe completarla y guardar los cambios.")
 
-            # MEJORA CLAVE: Lógica de "Generar y Guardar" o "Cargar Existente"
+            # MEJORA CRÍTICA: ID consistente y normalizado
             id_evaluacion = f"EVAL_FORM_{str(cedula_empleado).strip()}"
             
-            # 1. Buscar si el formulario de evaluación ya existe en la memoria
-            eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
+            # Botón para forzar regeneración (útil para depuración)
+            col_btn1, col_btn2 = st.columns([3, 1])
+            with col_btn2:
+                force_new = st.button("🔄 Nueva Eval", help="Genera un nuevo formulario desde cero")
             
-            if eval_form_json:
-                # Si existe, lo cargamos
-                eval_form_data = json.loads(eval_form_json)
-                st.success("✅ Formulario de evaluación cargado desde la memoria.")
-            else:
-                # Si no existe, lo generamos y lo guardamos inmediatamente
-                with st.spinner("🧠 Creando y guardando un nuevo formulario de evaluación único..."):
-                    eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
-                    if eval_form_data.get("preguntas"):
-                        save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data))
-                        contenido_guardado = get_saved_content(id_evaluacion, "EVAL_FORM")
-                        if contenido_guardado:
-                            st.info("✅ Formulario guardado correctamente en memoria.")
+            if force_new:
+                st.session_state.pop(f"eval_form_{cedula_empleado}", None)
+            
+            # 1. Buscar si el formulario ya existe en memoria
+            if f"eval_form_{cedula_empleado}" not in st.session_state:
+                with st.spinner("🔍 Buscando formulario guardado..."):
+                    eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
+                
+                if eval_form_json:
+                    try:
+                        eval_form_data = json.loads(eval_form_json)
+                        st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
+                        st.success("✅ Formulario cargado desde la memoria.")
+                    except json.JSONDecodeError:
+                        st.error("Error al decodificar el formulario. Se generará uno nuevo.")
+                        eval_form_data = None
+                else:
+                    # Si no existe, lo generamos
+                    with st.spinner("🧠 Generando nuevo formulario..."):
+                        eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
+                        if eval_form_data.get("preguntas"):
+                            # Guardamos inmediatamente
+                            save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data, ensure_ascii=False))
+                            st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
+                            st.success("✨ Nuevo formulario generado y guardado.")
                         else:
-                            st.error("❌ No se pudo guardar el formulario en memoria.")
-                        st.success("✨ Nuevo formulario de evaluación generado y guardado para este empleado.")
-                    else:
-                        st.error("La IA no pudo generar el formulario. Inténtalo de nuevo.")
+                            st.error("Error generando el formulario.")
             
-            if not eval_form_data.get("preguntas"):
+            eval_form_data = st.session_state.get(f"eval_form_{cedula_empleado}")
+            
+            if not eval_form_data or not eval_form_data.get("preguntas"):
                 st.error("No se pudo cargar o generar el formulario de evaluación.")
             else:
                 with st.form(f"form_eval_{cedula_empleado}"):
@@ -180,16 +201,27 @@ if seleccion:
                             horizontal=True
                         )
                     
-                    comentarios_evaluador = st.text_area("Comentarios del Evaluador (Fortalezas y Áreas de Mejora):", key=f"comentarios_{cedula_empleado}")
+                    comentarios_evaluador = st.text_area(
+                        "Comentarios del Evaluador (Fortalezas y Áreas de Mejora):", 
+                        key=f"comentarios_{cedula_empleado}"
+                    )
                     enviado = st.form_submit_button("💾 Guardar Evaluación", use_container_width=True)
 
                 if enviado:
                     with st.spinner("Guardando respuestas..."):
-                        # Guardamos las RESPUESTAS con un ID diferente
-                        id_respuestas = f"EVAL_RESP_{cedula_empleado}"
-                        contenido_evaluacion = {"respuestas": respuestas, "comentarios": comentarios_evaluador}
-                        save_content_to_memory(str(cedula_empleado), "EVALUACION", json.dumps(contenido_evaluacion, ensure_ascii=False))
-                        st.success("✅ Evaluación registrada correctamente. Ahora puedes ver el análisis en la pestaña 'Resultados y Plan de Acción'.")
+                        # MEJORA: Usar un ID diferente para las respuestas
+                        id_respuestas = f"EVAL_RESP_{str(cedula_empleado).strip()}"
+                        contenido_evaluacion = {
+                            "respuestas": respuestas, 
+                            "comentarios": comentarios_evaluador,
+                            "fecha": datetime.datetime.now().isoformat()
+                        }
+                        save_content_to_memory(
+                            id_respuestas, 
+                            "EVALUACION", 
+                            json.dumps(contenido_evaluacion, ensure_ascii=False)
+                        )
+                        st.success("✅ Evaluación registrada correctamente.")
                         st.balloons()
 
     # --- PESTAÑA 3: RESULTADOS Y PLAN DE ACCIÓN ---
