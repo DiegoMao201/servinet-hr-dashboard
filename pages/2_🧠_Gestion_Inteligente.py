@@ -177,17 +177,9 @@ if seleccion:
 
             token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
             
-            # --- MEJORA CLAVE PARA PRODUCCIÓN EN COOLIFY ---
+            # --- MEJORA CLAVE PARA PRODUCCIÓN EN COOLIFY (CORREGIDO) ---
             # Esta sección obtiene la URL pública de tu app automáticamente.
-            try:
-                from streamlit.web.server.server_util import get_server_url
-                # Esta es la forma moderna y recomendada
-                base_url = get_server_url()
-            except ImportError:
-                # Fallback para versiones más antiguas de Streamlit
-                from streamlit.runtime.scriptrunner import get_script_run_ctx
-                ctx = get_script_run_ctx()
-                base_url = f"http://{ctx.request.host}"
+            base_url = "https://servinet.datovatenexuspro.com"
 
             # Construye el enlace completo y dinámico
             # Apunta a la página correcta usando el nombre del archivo
