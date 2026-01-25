@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     graphviz \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar archivos
