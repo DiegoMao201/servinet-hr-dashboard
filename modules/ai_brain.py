@@ -139,6 +139,37 @@ def analyze_results(respuestas_json):
     except Exception as e:
         return f"Error analizando resultados: {e}"
 
+def analyze_clima_laboral(respuestas_list):
+    """
+    Analiza los resultados de clima laboral de un grupo de empleados.
+    Usa GPT para generar un reporte ejecutivo, fortalezas, debilidades y plan de acción.
+    """
+    if not client:
+        return "Error de configuración de IA."
+
+    prompt = f"""
+Eres consultor experto en clima laboral y bienestar organizacional. Analiza los siguientes resultados de encuesta de clima laboral (formato JSON, cada elemento es una respuesta individual):
+
+{json.dumps(respuestas_list, ensure_ascii=False)}
+
+Genera un reporte ejecutivo en Markdown que incluya:
+1. 📊 Resumen general del clima laboral (nivel de satisfacción, ambiente, motivación, comunicación, liderazgo, etc.).
+2. 💪 Fortalezas detectadas en la empresa.
+3. 🚩 Debilidades y alertas principales.
+4. 🎯 Recomendaciones y plan de acción para RRHH.
+5. 🏆 Sugerencias de capacitaciones o intervenciones grupales.
+Sé claro, profesional y orientado a la mejora continua.
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error analizando clima laboral: {e}"
+
 # La función generate_role_profile original ya no es necesaria si usas la de secciones,
 # pero la dejamos por si la usas en otro lado.
 def generate_role_profile(cargo, company_context, force=False):

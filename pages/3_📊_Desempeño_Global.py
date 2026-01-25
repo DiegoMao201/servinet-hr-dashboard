@@ -1,33 +1,48 @@
 import streamlit as st
 import pandas as pd
-from modules.database import get_employees, init_memory
+from modules.database import get_employees, get_evaluaciones
+from modules.ai_brain import analyze_results
 
 st.set_page_config(page_title="Desempeño Global", page_icon="📊", layout="wide")
 st.image("logo_servinet.jpg", width=120)
 st.title("📊 Desempeño Global del Talento")
 
-df = get_employees()
-worksheet = init_memory()
-if worksheet:
-    data = worksheet.get_all_records()
-    df_eval = pd.DataFrame(data)
-    if "TIPO_DOC" in df_eval.columns:
-        df_eval = df_eval[df_eval['TIPO_DOC'] == "EVALUACION"]
-        import re
-        def extraer_puntaje(texto):
-            m = re.search(r"(\d{1,3})\s*%", texto)
-            return int(m.group(1)) if m else None
-        df_eval['PUNTAJE'] = df_eval['CONTENIDO'].apply(extraer_puntaje)
-        df_eval = df_eval.dropna(subset=['PUNTAJE'])
-        if not df_eval.empty:
-            st.subheader("Evolución de Desempeño por Cargo")
-            st.line_chart(df_eval.groupby('CARGO')['PUNTAJE'].mean())
-            st.subheader("Ranking de Desempeño")
-            ranking = df_eval.groupby('CARGO')['PUNTAJE'].mean().sort_values(ascending=False)
-            st.dataframe(ranking)
-        else:
-            st.info("No hay datos de desempeño para graficar.")
-    else:
-        st.info("No hay datos de evaluaciones estructurados aún.")
+df_emp = get_employees()
+df_eval = get_evaluaciones()
+
+if df_eval.empty or df_emp.empty:
+    st.warning("No hay datos de evaluaciones o empleados.")
+    st.stop()
+
+# --- Procesamiento de datos ---
+if "PUNTAJE" in df_eval.columns:
+    df_eval['PUNTAJE'] = pd.to_numeric(df_eval['PUNTAJE'], errors='coerce')
 else:
-    st.warning("No se pudo acceder a la memoria de evaluaciones.")
+    st.warning("No hay columna de puntaje en las evaluaciones.")
+    st.stop()
+
+st.subheader("Evolución de Desempeño por Cargo")
+st.line_chart(df_eval.groupby('CARGO')['PUNTAJE'].mean())
+
+st.subheader("Ranking de Desempeño por Cargo")
+ranking = df_eval.groupby('CARGO')['PUNTAJE'].mean().sort_values(ascending=False)
+st.dataframe(ranking)
+
+st.markdown("---")
+st.subheader("🔎 Análisis IA por Cargo y Planes de Capacitación")
+
+for cargo, grupo in df_eval.groupby('CARGO'):
+    st.markdown(f"### {cargo}")
+    # Analizar todas las evaluaciones de este cargo
+    respuestas = grupo.to_dict(orient='records')
+    # Puedes concatenar respuestas o pasar una muestra
+    analisis = analyze_results(respuestas)
+    st.markdown(analisis, unsafe_allow_html=True)
+    # Alertas
+    if grupo['PUNTAJE'].min() < 60:
+        st.error("⚠️ Hay empleados con desempeño bajo en este cargo. Prioriza capacitación y seguimiento.")
+    else:
+        st.success("Desempeño adecuado en este grupo.")
+
+st.markdown("---")
+st.caption("Dashboard generado automáticamente por IA y RRHH • SERVINET")
