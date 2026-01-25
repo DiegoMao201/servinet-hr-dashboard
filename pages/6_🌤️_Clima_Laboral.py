@@ -17,6 +17,11 @@ sheet = spreadsheet.worksheet("4_clima_laboral")
 data_clima = sheet.get_all_records()
 df_clima = pd.DataFrame(data_clima)
 
+# Convierte las columnas de preguntas a numéricas (ignora errores)
+preguntas = [col for col in df_clima.columns if col.startswith("¿")]
+for col in preguntas:
+    df_clima[col] = pd.to_numeric(df_clima[col], errors='coerce')
+
 # --- FILTRAR EMPLEADOS QUE NO HAN RESPONDIDO ---
 respondieron = set(str(row['CEDULA']) for _, row in df_clima.iterrows() if 'CEDULA' in row and row['CEDULA'])
 df['CEDULA'] = df['CEDULA'].astype(str)
@@ -73,20 +78,62 @@ with tab2:
     st.header("📈 Resultados Globales de Clima Laboral")
     if not df_clima.empty:
         preguntas = [col for col in df_clima.columns if col.startswith("¿")]
+        # --- Conversión a numérico ---
+        for col in preguntas:
+            df_clima[col] = pd.to_numeric(df_clima[col], errors='coerce')
+
         st.subheader("Promedio Global por Pregunta")
-        promedios = df_clima[preguntas].apply(pd.to_numeric, errors='coerce').mean()
+        promedios = df_clima[preguntas].mean().sort_values(ascending=False)
         st.bar_chart(promedios)
+
+        st.subheader("Distribución de Respuestas por Pregunta")
+        import plotly.express as px
+        for col in preguntas:
+            fig = px.histogram(df_clima, x=col, nbins=11, title=col, color_discrete_sequence=['#3b82f6'])
+            st.plotly_chart(fig, use_container_width=True)
+
         st.subheader("Promedio de Clima por Cargo")
         clima_por_cargo = df_clima.groupby("CARGO")[preguntas].mean()
-        st.dataframe(clima_por_cargo)
+        st.dataframe(clima_por_cargo.style.background_gradient(cmap="Blues"), use_container_width=True)
+
+        st.subheader("Mapa de Calor de Clima Laboral por Cargo")
+        import plotly.figure_factory as ff
+        z = clima_por_cargo.values
+        x = clima_por_cargo.columns.tolist()
+        y = clima_por_cargo.index.tolist()
+        fig = ff.create_annotated_heatmap(z, x=x, y=y, colorscale='Blues', showscale=True)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+        st.info("Haz clic en las pestañas para ver análisis IA y planes de acción por cargo.")
     else:
         st.info("Aún no hay respuestas de clima laboral registradas.")
 
 with tab3:
     st.header("🧠 Análisis IA y Plan de Acción")
     if not df_clima.empty:
+        preguntas = [col for col in df_clima.columns if col.startswith("¿")]
+        # --- Conversión a numérico ---
+        for col in preguntas:
+            df_clima[col] = pd.to_numeric(df_clima[col], errors='coerce')
+
+        st.subheader("Análisis Ejecutivo Global")
         respuestas_list = df_clima.to_dict(orient='records')
         analisis = analyze_clima_laboral(respuestas_list)
         st.markdown(analisis, unsafe_allow_html=True)
+
+        st.subheader("Análisis y Plan de Acción por Cargo")
+        cargos = df_clima["CARGO"].dropna().unique()
+        for cargo in cargos:
+            grupo = df_clima[df_clima["CARGO"] == cargo]
+            if not grupo.empty:
+                st.markdown(f"### {cargo}")
+                respuestas_cargo = grupo.to_dict(orient='records')
+                analisis_cargo = analyze_clima_laboral(respuestas_cargo)
+                st.markdown(analisis_cargo, unsafe_allow_html=True)
+                # Gráfico de barras para este cargo
+                promedios_cargo = grupo[preguntas].mean().sort_values(ascending=False)
+                st.bar_chart(promedios_cargo)
+                st.markdown("---")
     else:
         st.info("Aún no hay suficientes datos para análisis.")
