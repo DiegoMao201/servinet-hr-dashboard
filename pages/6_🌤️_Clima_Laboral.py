@@ -28,9 +28,11 @@ else:
         token = base64.b64encode(str(row['CEDULA']).encode()).decode()
         url = f"https://servinet.datovatenexuspro.com/?clima={row['CEDULA']}&token={token}"
         mensaje_ws = (
-            f"🌤️ Hola {row['NOMBRE COMPLETO']},%0A%0ATe invitamos a diligenciar la Encuesta de Clima Laboral de SERVINET.%0A"
-            f"Tu opinión es muy importante para nosotros y nos ayuda a mejorar el ambiente de trabajo.%0A%0A"
-            f"Por favor ingresa al siguiente enlace seguro y responde la encuesta:%0A{url}%0A%0A"
+            f"🌤️ Hola {row['NOMBRE COMPLETO']},%0A"
+            "Te invitamos a diligenciar la Encuesta de Clima Laboral de SERVINET.%0A"
+            "Tu opinión es muy importante para nosotros y nos ayuda a mejorar el ambiente de trabajo.%0A"
+            "Por favor ingresa al siguiente enlace seguro y responde la encuesta: "
+            f"{url}%0A"
             "¡Gracias por tu participación! 😊"
         )
         st.markdown(f"""
