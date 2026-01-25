@@ -317,10 +317,10 @@ if tab_share:
             token_seguro = base64.b64encode(str(empleado['cedula']).encode()).decode()
             base_url = "https://servinet.datovatenexuspro.com"
             link_final = f"{base_url}/?cedula={empleado['cedula']}&token={token_seguro}"
-            st.code(link_final, language="text")
             mensaje_ws = (
-                f"👋 Hola, necesitamos realizar la evaluación de desempeño de *{empleado['nombre']}*.\n\n"
-                f"Por favor ingresa al siguiente enlace para completar el formulario:\n{link_final}\n\n"
+                f"👋 Hola, necesitamos realizar la evaluación de desempeño de *{empleado['nombre']}*. "
+                "Por favor ingresa al siguiente enlace para completar el formulario: "
+                f"{link_final} "
                 "¡Gracias!"
             )
             mensaje_encoded = urllib.parse.quote(mensaje_ws)
