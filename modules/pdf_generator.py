@@ -121,6 +121,65 @@ def export_organigrama_pdf(cargos_info, descripcion_general, empresa_nombre="SER
     HTML(string=html_content, base_url=template_dir).write_pdf(filename)
     return filename
 
+def export_organigrama_pdf_master(df_empleados, descripcion_general, empresa_nombre="SERVINET", filename="Organigrama_Cargos.pdf"):
+    """
+    Genera un PDF profesional del organigrama usando la plantilla master.
+    """
+    from jinja2 import Environment, FileSystemLoader
+    from weasyprint import HTML
+    import datetime
+    import os
+
+    template_dir = os.path.dirname(__file__)
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template("organigrama_template.html")
+    logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
+
+    # Agrupa empleados por departamento y cargo
+    data_grouped = {}
+    for _, row in df_empleados.iterrows():
+        depto = row.get("DEPARTAMENTO", "OTROS")
+        cargo = row.get("CARGO", "Sin Cargo")
+        if depto not in data_grouped:
+            data_grouped[depto] = []
+        # Busca si ya existe el cargo en el departamento
+        cargo_entry = next((c for c in data_grouped[depto] if c["cargo"] == cargo), None)
+        emp_dict = {
+            "nombre": row.get("NOMBRE COMPLETO", ""),
+            "email": row.get("CORREO", ""),
+            "telefono": row.get("CELULAR", ""),
+            "ubicacion": row.get("SEDE", ""),
+            "modalidad": row.get("MODALIDAD", "Oficina"),
+            "foto_url": row.get("FOTO_URL", ""),
+        }
+        if cargo_entry:
+            cargo_entry["empleados"].append(emp_dict)
+        else:
+            cargo_entry = {
+                "cargo": cargo,
+                "descripcion": row.get("DESCRIPCION_CARGO", ""),  # O usa IA si quieres
+                "empleados": [emp_dict]
+            }
+            data_grouped[depto].append(cargo_entry)
+
+    # KPIs
+    total_empleados = len(df_empleados)
+    total_departamentos = len(data_grouped)
+    fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    html_content = template.render(
+        empresa=empresa_nombre,
+        logo_url=logo_path,
+        now=datetime.datetime.now(),
+        descripcion_general=descripcion_general,
+        data_grouped=data_grouped,
+        total_empleados=total_empleados,
+        total_departamentos=total_departamentos,
+        fecha_actual=fecha_actual
+    )
+    HTML(string=html_content, base_url=template_dir).write_pdf(filename)
+    return filename
+
 # --- BLOQUE DE EJEMPLO, AHORA CORRECTAMENTE COMENTADO PARA NO CAUSAR ERRORES ---
 """
 El siguiente bloque es solo un ejemplo de cómo usar las funciones en tus páginas.

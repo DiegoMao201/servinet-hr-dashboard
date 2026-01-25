@@ -16,7 +16,7 @@ try:
         download_manual_from_drive
     )
     from modules.ai_brain import client as openai_client
-    from modules.pdf_generator import export_organigrama_pdf
+    from modules.pdf_generator import export_organigrama_pdf, export_organigrama_pdf_master
 except ImportError as e:
     st.error(f"Error al importar módulos locales: {e}. Verifica que la carpeta 'modules' y los archivos existan.")
     st.stop()
