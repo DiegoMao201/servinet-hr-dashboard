@@ -1,6 +1,7 @@
 # pages/6_🌤️_Clima_Laboral.py
 import streamlit as st
 from modules.database import connect_to_drive, SPREADSHEET_ID
+import base64
 
 st.set_page_config(page_title="Clima Laboral", page_icon="🌤️", layout="wide")
 st.title("🌤️ Encuesta de Clima Laboral")
@@ -27,3 +28,10 @@ if enviado:
         *[respuestas[p] for p in preguntas]
     ])
     st.success("Encuesta registrada.")
+
+df = get_employees()
+st.subheader("🔗 Enlaces personalizados para encuesta de clima laboral")
+for _, row in df.iterrows():
+    token = base64.b64encode(str(row['CEDULA']).encode()).decode()
+    url = f"https://servinet.datovatenexuspro.com/?clima={row['CEDULA']}&token={token}"
+    st.markdown(f"**{row['NOMBRE COMPLETO']}**: [Abrir encuesta]({url})")

@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from modules._evaluar import render_evaluation_page
+from modules.clima import render_clima_page  # <--- Importa tu función de clima
 from modules.auth import check_password
 
 # --- CONFIGURACIÓN INICIAL DE LA PÁGINA ---
@@ -10,21 +11,23 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- MEJORA CLAVE: EL PORTERO INTELIGENTE (ROUTER) ---
-# 1. Revisa si la URL contiene los parámetros para una evaluación externa
+# --- ROUTER INTELIGENTE ---
 params = st.query_params
 cedula_eval = params.get("cedula")
 token_eval = params.get("token")
+cedula_clima = params.get("clima")
+token_clima = params.get("token")
 
-# 2. SI ES UN ENLACE DE EVALUACIÓN, RENDERIZA LA PÁGINA DEDICADA Y DETIENE TODO LO DEMÁS
-if cedula_eval and token_eval:
-    # Llama a la función desde tu módulo _evaluar.py para mostrar la vista dedicada.
-    # Esto cumple tu requisito de que el enlace solo muestre la evaluación.
+# 1. Si es enlace de clima laboral, muestra solo la encuesta de clima
+if cedula_clima and token_clima:
+    render_clima_page(cedula_clima, token_clima)
+
+# 2. Si es enlace de evaluación, muestra solo la evaluación
+elif cedula_eval and token_eval:
     render_evaluation_page(cedula_eval, token_eval)
 
-# 3. SI ES UN ACCESO NORMAL, PIDE CONTRASEÑA Y MUESTRA LA APP COMPLETA
+# 3. Si es acceso normal, pide contraseña y muestra la app completa
 else:
-    # La función check_password() ahora maneja el login y devuelve True si es exitoso.
     if check_password():
         # --- PÁGINA DE BIENVENIDA (Solo se muestra si la contraseña es correcta) ---
         st.title("📡 Panel de Control RRHH - SERVINET")
