@@ -78,10 +78,7 @@ def create_manual_pdf_from_template(data, cargo, empleado=None):
     
     html_content = template.render(data)
     
-    filename = f"Manual_{cargo.replace(' ', '_')}"
-    if empleado:
-        filename += f"_{empleado.replace(' ', '_')}"
-    filename += ".pdf"
+    filename = f"Manual_{cargo.replace(' ', '_').upper()}.pdf"
     abs_path = os.path.abspath(filename)
     
     HTML(string=html_content, base_url=template_dir).write_pdf(abs_path)
