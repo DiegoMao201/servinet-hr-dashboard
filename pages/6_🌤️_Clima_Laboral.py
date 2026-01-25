@@ -1,6 +1,6 @@
 # pages/6_🌤️_Clima_Laboral.py
 import streamlit as st
-from modules.database import connect_to_drive, SPREADSHEET_ID
+from modules.database import connect_to_drive, SPREADSHEET_ID, get_employees  # <--- AGREGA get_employees
 import base64
 
 st.set_page_config(page_title="Clima Laboral", page_icon="🌤️", layout="wide")
