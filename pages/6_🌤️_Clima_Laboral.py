@@ -27,28 +27,18 @@ else:
     for _, row in df_pendientes.iterrows():
         token = base64.b64encode(str(row['CEDULA']).encode()).decode()
         url = f"https://servinet.datovatenexuspro.com/?clima={row['CEDULA']}&token={token}"
-        mensaje = (
-            f"🌤️ Hola {row['NOMBRE COMPLETO']},\n\n"
-            "Te invitamos a diligenciar la Encuesta de Clima Laboral de SERVINET.\n"
-            "Tu opinión es muy importante para nosotros y nos ayuda a mejorar el ambiente de trabajo.\n\n"
-            f"Por favor ingresa al siguiente enlace seguro y responde la encuesta:\n{url}\n\n"
-            "¡Gracias por tu participación! 😊"
-        )
-        mensaje_encoded = base64.urlsafe_b64encode(mensaje.encode()).decode()
-        mensaje_ws = url = f"https://servinet.datovatenexuspro.com/?clima={row['CEDULA']}&token={token}"
         mensaje_ws = (
             f"🌤️ Hola {row['NOMBRE COMPLETO']},%0A%0ATe invitamos a diligenciar la Encuesta de Clima Laboral de SERVINET.%0A"
             f"Tu opinión es muy importante para nosotros y nos ayuda a mejorar el ambiente de trabajo.%0A%0A"
             f"Por favor ingresa al siguiente enlace seguro y responde la encuesta:%0A{url}%0A%0A"
             "¡Gracias por tu participación! 😊"
         )
-        mensaje_encoded = mensaje_ws.replace('\n', '%0A')
         st.markdown(f"""
             <div style="background:#f8fafc; border-radius:10px; padding:16px; margin-bottom:12px; box-shadow:0 2px 8px #e0e7ef;">
                 <b>{row['NOMBRE COMPLETO']}</b> ({row.get('CARGO','')})<br>
                 <a href="{url}" target="_blank" style="color:#2563eb;">Abrir encuesta</a>
                 <br>
-                <a href="https://web.whatsapp.com/send?phone={row.get('CELULAR','')}&text={mensaje_encoded}" target="_blank">
+                <a href="https://web.whatsapp.com/send?phone={row.get('CELULAR','')}&text={mensaje_ws}" target="_blank">
                     <button style="
                         background-color:#25D366; 
                         color:white; 
