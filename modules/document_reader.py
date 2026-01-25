@@ -4,6 +4,7 @@ from googleapiclient.http import MediaIoBaseDownload
 import io
 import PyPDF2
 from docx import Document
+import time
 # CORRECCIÓN: Importar la función de autenticación desde el lugar correcto (auth.py)
 from modules.auth import get_google_creds
 
@@ -54,20 +55,27 @@ def read_docx(file_id):
 def get_company_context(folder_id):
     """
     Busca manuales en la carpeta indicada y crea el contexto para la IA.
+    Ahora con reintentos ante errores de red.
     """
     service = get_drive_service()
     if not service:
         st.error("No se pudo obtener el servicio de Drive para leer el contexto de la compañía.")
         return ""
-        
     query = f"('{folder_id}' in parents) and (name contains 'MANUAL' or name contains 'Estructura')"
-    results = service.files().list(q=query, fields="files(id, name, mimeType)").execute()
+    max_retries = 3
+    for intento in range(max_retries):
+        try:
+            results = service.files().list(q=query, fields="files(id, name, mimeType)").execute()
+            break
+        except Exception as e:
+            if intento < max_retries - 1:
+                time.sleep(2)
+            else:
+                st.error(f"Error de red al leer archivos de Drive: {e}")
+                return ""
     files = results.get('files', [])
     full_context = ""
     for file in files:
-        # MEJORA: Se elimina el st.toast para hacer la función más robusta y compatible con el caché.
-        # La carga ahora es más limpia y se evita el error CacheReplayClosureError.
-        # st.toast(f"🧠 Analizando documento: {file['name']}...")
         if "pdf" in file['mimeType']:
             full_context += f"\n--- CONTENIDO DE {file['name']} ---\n"
             full_context += read_pdf(file['id'])

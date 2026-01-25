@@ -53,7 +53,7 @@ def reset_employee_state():
 # --- BARRA LATERAL: CONFIGURACIÓN Y CONTEXTO ---
 with st.sidebar:
     if os.path.exists("logo_servinet.jpg"):
-        st.image("logo_servinet.jpg", use_column_width=True)
+        st.image("logo_servinet.jpg", width=180)
     
     st.title("⚙️ Panel de Control")
     st.markdown("---")
