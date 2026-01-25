@@ -1,4 +1,12 @@
 import streamlit as st
+import os
+import pandas as pd
+import datetime
+import json
+import base64
+import urllib.parse
+import time
+
 from modules.database import get_employees, save_content_to_memory, get_saved_content
 from modules.document_reader import get_company_context
 from modules.ai_brain import generate_role_profile_by_sections, generate_evaluation, analyze_results
@@ -9,262 +17,330 @@ from modules.drive_manager import (
     upload_manual_to_drive
 )
 from modules.pdf_generator import create_manual_pdf_from_template
-import os
-import pandas as pd
-import datetime
-import json
-import base64
-import urllib.parse
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Gestión IA", page_icon="🧠", layout="wide")
+# --- CONFIGURACIÓN INICIAL DE LA PÁGINA ---
+st.set_page_config(
+    page_title="Gestión IA - SERVINET", 
+    page_icon="🧠", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-if os.path.exists("logo_servinet.jpg"):
-    st.image("logo_servinet.jpg", width=120)
+# --- ESTILOS CSS PERSONALIZADOS ---
+st.markdown("""
+    <style>
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #f0f2f6; border-radius: 4px 4px 0px 0px; gap: 1px; padding-top: 10px; padding-bottom: 10px; }
+    .stTabs [aria-selected="true"] { background-color: #FFFFFF; border-bottom: 2px solid #4B8BBE; }
+    </style>
+""", unsafe_allow_html=True)
 
-st.title("🧠 Talent AI - SERVINET")
-st.markdown("Generación de perfiles, evaluaciones y planes de carrera basados en tus Manuales de Funciones.")
+# --- GESTIÓN DE ESTADO (SESSION STATE) ---
+if "user_session" not in st.session_state:
+    st.session_state.user_session = {
+        "cedula": None,
+        "nombre": None,
+        "cargo": None,
+        "departamento": None
+    }
 
-# --- CARGA DE DATOS Y CONTEXTO ---
-manuals_folder_id = get_or_create_manuals_folder()
+def reset_employee_state():
+    """Limpia variables específicas del empleado anterior para evitar mezcla de datos."""
+    keys_to_clear = [key for key in st.session_state.keys() if any(x in key for x in ["eval_form_", "analisis_", "manual_view_"])]
+    for key in keys_to_clear:
+        del st.session_state[key]
 
-if "company_context" not in st.session_state:
-    with st.spinner("🤖 La IA está leyendo tus manuales..."):
-        st.session_state["company_context"] = get_company_context(manuals_folder_id)
-        if st.session_state["company_context"]:
-            st.success("¡Contexto cargado!")
-        else:
-            st.warning("No se encontraron manuales.")
+# --- BARRA LATERAL: CONFIGURACIÓN Y CONTEXTO ---
+with st.sidebar:
+    if os.path.exists("logo_servinet.jpg"):
+        st.image("logo_servinet.jpg", use_column_width=True)
+    
+    st.title("⚙️ Panel de Control")
+    st.markdown("---")
+    st.subheader("📚 Base de Conocimiento (Drive)")
+    manuals_folder_id = get_or_create_manuals_folder()
+    if st.button("🔄 Recargar Manuales de Drive", help="Lee nuevamente todos los archivos en la carpeta de Drive"):
+        with st.status("Releyendo archivos de Drive...", expanded=True) as status:
+            st.write("Conectando a Drive...")
+            st.session_state["company_context"] = get_company_context(manuals_folder_id)
+            status.update(label="¡Contexto actualizado!", state="complete", expanded=False)
+            st.toast("Base de conocimiento actualizada correctamente.", icon="✅")
+    if "company_context" not in st.session_state:
+        with st.spinner("Inicializando cerebro de IA..."):
+            st.session_state["company_context"] = get_company_context(manuals_folder_id)
+    context_preview = st.session_state.get("company_context", "")
+    if context_preview:
+        st.success(f"Contexto cargado: {len(context_preview)} caracteres.")
+        with st.expander("Ver qué sabe la IA hoy"):
+            st.text_area("Extracto del contexto", context_preview[:1000] + "...", height=150, disabled=True)
+    else:
+        st.error("⚠️ No se pudo cargar el contexto. Verifique la conexión a Drive.")
+
+# --- LÓGICA DE ENLACES COMPARTIDOS (QUERY PARAMS) ---
+params = st.query_params
+link_cedula = params.get("cedula")
+link_token = params.get("token")
+link_employee_name = None
 
 df = get_employees()
 if df.empty:
-    st.error("No se pudieron cargar los datos de los empleados.")
+    st.error("🚨 Error Crítico: No se pudo conectar a la base de datos de empleados.")
     st.stop()
 
-# --- LÓGICA PARA ENLACES COMPARTIDOS ---
-params = st.query_params
-empleado_cedula_link = params.get("cedula")
-token_link = params.get("token")
-empleado_seleccionado_por_link = None
-
-if empleado_cedula_link and token_link:
+if link_cedula and link_token:
     try:
-        expected_token = base64.b64encode(str(empleado_cedula_link).encode()).decode()
-        if token_link == expected_token:
-            empleado_encontrado = df[df['CEDULA'].astype(str) == str(empleado_cedula_link)]
+        expected_token = base64.b64encode(str(link_cedula).encode()).decode()
+        if link_token == expected_token:
+            empleado_encontrado = df[df['CEDULA'].astype(str) == str(link_cedula)]
             if not empleado_encontrado.empty:
-                empleado_seleccionado_por_link = empleado_encontrado.iloc[0]['NOMBRE COMPLETO']
+                link_employee_name = empleado_encontrado.iloc[0]['NOMBRE COMPLETO']
     except Exception as e:
-        st.error(f"Error validando el enlace: {e}")
+        st.toast(f"Error en enlace compartido: {e}", icon="⚠️")
 
-# --- SELECCIÓN DE EMPLEADO CON DETECCIÓN DE CAMBIO ---
-st.markdown("---")
-st.subheader("Selección de Colaborador")
+# --- CABECERA PRINCIPAL ---
+st.title("🧠 Talent AI - SERVINET")
+st.markdown("Plataforma inteligente para la gestión de **Perfiles, Evaluaciones y Planes de Carrera**.")
 
-if empleado_seleccionado_por_link:
-    st.info(f"Evaluando a: **{empleado_seleccionado_por_link}** (Link)")
-    seleccion = empleado_seleccionado_por_link
+# --- SELECCIÓN DE COLABORADOR ---
+st.markdown("### 👤 Selección de Colaborador")
+lista_nombres = sorted(df['NOMBRE COMPLETO'].unique())
+index_seleccion = 0
+if link_employee_name and link_employee_name in lista_nombres:
+    index_seleccion = lista_nombres.index(link_employee_name)
+    st.info(f"🔗 Accediendo vía enlace directo para: **{link_employee_name}**")
+
+seleccion_nombre = st.selectbox(
+    "Busque o seleccione un colaborador:",
+    options=lista_nombres,
+    index=index_seleccion,
+    key="selector_empleado",
+    on_change=reset_employee_state,
+    help="Escribe para buscar..."
+)
+
+if seleccion_nombre:
+    datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion_nombre].iloc[0]
+    cedula_actual = str(datos_empleado['CEDULA']).strip()
+    cargo_actual = datos_empleado['CARGO']
+    depto_actual = datos_empleado.get('DEPARTAMENTO', 'General')
+    empleado = {
+        "nombre": seleccion_nombre,
+        "cedula": cedula_actual,
+        "cargo": cargo_actual,
+        "departamento": depto_actual
+    }
 else:
-    empleados_lista = [""] + sorted(df['NOMBRE COMPLETO'].unique())
-    seleccion = st.selectbox(
-        "Seleccione un colaborador:", 
-        empleados_lista,
-        key="selector_empleado_principal"
-    )
+    st.warning("Por favor seleccione un empleado para comenzar.")
+    st.stop()
 
-# --- MEJORA CLAVE: DETECTAR CAMBIO DE EMPLEADO Y LIMPIAR CACHÉ ---
-if seleccion:
-    # Obtener cédula del empleado seleccionado
-    datos_empleado = df[df['NOMBRE COMPLETO'] == seleccion].iloc[0]
-    cedula_empleado = str(datos_empleado['CEDULA']).strip()
-    cargo_empleado = datos_empleado['CARGO']
+st.markdown("---")
 
-    # Si el empleado cambió, limpiar todos los estados relacionados
-    if "ultima_cedula_seleccionada" not in st.session_state or st.session_state["ultima_cedula_seleccionada"] != cedula_empleado:
-        # Limpiar estados del empleado anterior
-        keys_to_clear = [k for k in st.session_state.keys() if any(x in k for x in ["eval_form_", "analisis_", "manual_"])]
-        for key in keys_to_clear:
-            st.session_state.pop(key, None)
-        
-        # Actualizar el registro de último empleado
-        st.session_state["ultima_cedula_seleccionada"] = cedula_empleado
-        st.rerun()  # Forzar recarga para reflejar el cambio
+# --- PESTAÑAS DE FUNCIONALIDAD ---
+if link_employee_name:
+    tabs = st.tabs(["📝 Evaluación 360°"])
+    tab_manual, tab_eval, tab_resultados, tab_share = (None, tabs[0], None, None)
+else:
+    tabs = st.tabs(["📄 Manual de Funciones", "📝 Evaluación de Desempeño", "📈 Resultados y Análisis", "🔗 Compartir"])
+    tab_manual, tab_eval, tab_resultados, tab_share = tabs
 
-    # --- PESTAÑAS ---
-    if empleado_seleccionado_por_link:
-        tabs = st.tabs(["📝 Evaluación"])
-        tab_manual, tab_eval, tab_resultados, tab_share = (None, tabs[0], None, None)
-    else:
-        tabs = st.tabs(["📄 Manual de Funciones", "📝 Evaluación", "📈 Resultados y Plan de Acción", "🔗 Compartir por WhatsApp"])
-        tab_manual, tab_eval, tab_resultados, tab_share = tabs
-
-    # --- PESTAÑA 1: MANUAL DE FUNCIONES ---
-    if tab_manual:
-        with tab_manual:
-            st.header(f"Manual de Funciones para: {cargo_empleado}")
-            st.markdown(f"**Colaborador:** {seleccion} | **Departamento:** {datos_empleado.get('DEPARTAMENTO', '--')}")
-            
-            force_regen = st.checkbox("Forzar nueva generación", key=f"regen_{cedula_empleado}")
-            manual_file_id = find_manual_in_drive(cargo_empleado, manuals_folder_id)
-
-            if manual_file_id and not force_regen:
-                st.success("✅ Manual encontrado en Drive")
-                pdf_bytes = download_manual_from_drive(manual_file_id)
-                st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{cargo_empleado.replace(' ', '_')}.pdf", "application/pdf")
-            else:
-                st.warning("⚠️ No existe manual o se forzará regeneración")
-                if st.button("✨ Generar Manual con IA", key=f"gen_manual_{cedula_empleado}"):
-                    with st.spinner("Redactando documento..."):
-                        perfil_html_completo = generate_role_profile_by_sections(cargo_empleado, st.session_state["company_context"])
-                        
-                        now = datetime.datetime.now()
-                        logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
-                        
-                        datos_plantilla = {
-                            "empresa": "GRUPO SERVINET", 
-                            "logo_url": logo_path,
-                            "codigo_doc": f"DOC-MF-{cedula_empleado}", 
-                            "departamento": datos_empleado.get("DEPARTAMENTO", ""),
-                            "version": "1.0", 
-                            "vigencia": f"Año {now.year}", 
-                            "fecha_emision": now.strftime("%d/%m/%Y"),
-                            "cargo": cargo_empleado,
-                            "empleado": seleccion,
-                            "perfil_html": perfil_html_completo
-                        }
-                        
-                        pdf_filename = create_manual_pdf_from_template(datos_plantilla, cargo_empleado, empleado=seleccion)
-                        upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
-                        
-                        with open(pdf_filename, "rb") as f:
-                            st.download_button("📥 Descargar Manual Generado", f.read(), os.path.basename(pdf_filename), "application/pdf")
-                        st.success("Manual generado y guardado")
-
-    # --- PESTAÑA 2: EVALUACIÓN ---
-    if tab_eval:
-        with tab_eval:
-            st.header(f"Evaluación de Desempeño: {seleccion} ({cargo_empleado})")
-            st.info("La IA genera una evaluación profesional.")
-
-            id_evaluacion = f"EVAL_FORM_{cedula_empleado}"
-            
-            col_btn1, col_btn2 = st.columns([3, 1])
-            with col_btn2:
-                if st.button("🔄 Nueva Eval", help="Genera nuevo formulario"):
-                    st.session_state.pop(f"eval_form_{cedula_empleado}", None)
-                    st.rerun()
-            
-            # Buscar o generar formulario
-            if f"eval_form_{cedula_empleado}" not in st.session_state:
-                with st.spinner("🔍 Buscando formulario..."):
-                    eval_form_json = get_saved_content(id_evaluacion, "EVAL_FORM")
-                
-                if eval_form_json:
-                    try:
-                        eval_form_data = json.loads(eval_form_json)
-                        st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
-                        st.success("✅ Formulario cargado desde memoria")
-                    except json.JSONDecodeError:
-                        eval_form_data = None
-                else:
-                    with st.spinner("🧠 Generando formulario..."):
-                        eval_form_data = generate_evaluation(cargo_empleado, st.session_state["company_context"])
-                        if eval_form_data.get("preguntas"):
-                            save_content_to_memory(id_evaluacion, "EVAL_FORM", json.dumps(eval_form_data, ensure_ascii=False))
-                            st.session_state[f"eval_form_{cedula_empleado}"] = eval_form_data
-                            st.success("✨ Formulario generado y guardado")
-                        else:
-                            st.error("Error generando formulario")
-            
-            eval_form_data = st.session_state.get(f"eval_form_{cedula_empleado}")
-            
-            if not eval_form_data or not eval_form_data.get("preguntas"):
-                st.error("No se pudo cargar el formulario")
-            else:
-                with st.form(f"form_eval_{cedula_empleado}"):
-                    respuestas = {}
-                    st.markdown("#### Cuestionario de Evaluación")
-                    for idx, pregunta in enumerate(eval_form_data.get("preguntas", [])):
-                        respuestas[f"preg_{idx}"] = st.radio(
-                            f"{idx+1}. {pregunta.get('texto')}", 
-                            pregunta.get("opciones"), 
-                            key=f"preg_{idx}_{cedula_empleado}", 
-                            horizontal=True
+# ========== PESTAÑA 1: MANUAL DE FUNCIONES ==========
+if tab_manual:
+    with tab_manual:
+        col_info, col_actions = st.columns([2, 1])
+        with col_info:
+            st.subheader(f"Manual: {empleado['cargo']}")
+            st.caption(f"Departamento: {empleado['departamento']} | Cédula: {empleado['cedula']}")
+        manual_id = find_manual_in_drive(empleado['cargo'], manuals_folder_id)
+        if manual_id:
+            st.success("✅ Documento existente en Drive")
+            col_view, col_regen = st.columns(2)
+            with col_view:
+                if st.button("👁️ Ver / Descargar Manual Actual", key=f"btn_ver_{empleado['cedula']}"):
+                    pdf_bytes = download_manual_from_drive(manual_id)
+                    if pdf_bytes:
+                        base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
+                        st.markdown(pdf_display, unsafe_allow_html=True)
+                        st.download_button(
+                            label="📥 Descargar PDF",
+                            data=pdf_bytes,
+                            file_name=f"Manual_{empleado['cargo']}.pdf",
+                            mime="application/pdf"
                         )
-                    
-                    comentarios_evaluador = st.text_area(
-                        "Comentarios del Evaluador:", 
-                        key=f"comentarios_{cedula_empleado}"
-                    )
-                    enviado = st.form_submit_button("💾 Guardar Evaluación", use_container_width=True)
+        else:
+            st.info("ℹ️ Aún no existe un manual para este cargo.")
 
-                if enviado:
-                    with st.spinner("Guardando..."):
-                        id_respuestas = f"EVAL_RESP_{cedula_empleado}"
-                        contenido_evaluacion = {
-                            "respuestas": respuestas, 
-                            "comentarios": comentarios_evaluador,
-                            "fecha": datetime.datetime.now().isoformat()
-                        }
-                        save_content_to_memory(
-                            id_respuestas, 
-                            "EVALUACION", 
-                            json.dumps(contenido_evaluacion, ensure_ascii=False)
-                        )
-                        st.success("✅ Evaluación registrada")
-                        st.balloons()
-
-    # --- PESTAÑA 3: RESULTADOS ---
-    if tab_resultados:
-        with tab_resultados:
-            st.header(f"Análisis de Desempeño: {seleccion}")
-            id_respuestas = f"EVAL_RESP_{cedula_empleado}"
-            contenido_guardado = get_saved_content(id_respuestas, "EVALUACION")
-            
-            if contenido_guardado:
-                st.info("Mostrando análisis de la última evaluación")
-                
-                if st.button("🔄 Refrescar Análisis"):
-                    st.session_state.pop(f"analisis_{cedula_empleado}", None)
-                    st.rerun()
-
-                if f"analisis_{cedula_empleado}" not in st.session_state:
-                    with st.spinner("Analizando..."):
-                         st.session_state[f"analisis_{cedula_empleado}"] = analyze_results(contenido_guardado)
-
-                st.markdown(st.session_state[f"analisis_{cedula_empleado}"], unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ No hay evaluación guardada para este empleado")
-
-    # --- PESTAÑA 4: COMPARTIR ---
-    if tab_share:
-        with tab_share:
-            st.header("📲 Compartir Evaluación por WhatsApp")
-            st.info("Genera un enlace único para evaluación remota")
-
-            token_seguro = base64.b64encode(str(cedula_empleado).encode()).decode()
-            base_url = "https://servinet.datovatenexuspro.com"
-            url_evaluacion = f"{base_url}/?cedula={cedula_empleado}&token={token_seguro}"
-
-            mensaje = (
-                f"Hola, soy CAROLINA PEREZ. Te envío el link para evaluar a *{seleccion}*.\n\n"
-                f"Completa todos los campos y guarda al finalizar. ¡Gracias!\n\n"
-                f"Enlace: {url_evaluacion}"
+        st.markdown("#### 🤖 Generador con IA")
+        with st.expander("🛠️ Configuración avanzada del Prompt (Instrucciones a la IA)", expanded=True):
+            prompt_adicional = st.text_area(
+                "Instrucciones específicas antes de generar:",
+                value="",
+                placeholder="Ejemplo: 'Asegúrate de incluir funciones específicas sobre manejo de maquinaria pesada' o 'Usa un tono formal y enfócate en habilidades blandas'.",
+                help="Lo que escribas aquí se enviará a la IA junto con los manuales de la empresa para personalizar este documento."
             )
-            mensaje_encoded = urllib.parse.quote(mensaje)
-            whatsapp_link = f"https://web.whatsapp.com/send?text={mensaje_encoded}"
+        col_gen_btn, col_empty = st.columns([1, 2])
+        with col_gen_btn:
+            modo_regenerar = "Regenerar Manual (Sobreescribir)" if manual_id else "✨ Generar Manual con IA"
+            if st.button(modo_regenerar, type="primary", key=f"gen_btn_{empleado['cedula']}"):
+                progress_text = "Iniciando motor de IA..."
+                my_bar = st.progress(0, text=progress_text)
+                try:
+                    contexto_total = st.session_state["company_context"]
+                    if prompt_adicional:
+                        contexto_total += f"\n\n[INSTRUCCIÓN ADICIONAL DEL USUARIO]: {prompt_adicional}"
+                    my_bar.progress(25, text="Analizando manuales y estructura...")
+                    perfil_html = generate_role_profile_by_sections(empleado['cargo'], contexto_total)
+                    my_bar.progress(60, text="Maquetando documento PDF...")
+                    logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
+                    now = datetime.datetime.now()
+                    datos_pdf = {
+                        "empresa": "GRUPO SERVINET",
+                        "logo_url": logo_path,
+                        "codigo_doc": f"MF-{empleado['cedula']}-{now.year}",
+                        "departamento": empleado['departamento'],
+                        "version": "1.0 IA",
+                        "vigencia": str(now.year),
+                        "fecha_emision": now.strftime("%d/%m/%Y"),
+                        "cargo": empleado['cargo'],
+                        "empleado": empleado['nombre'],
+                        "perfil_html": perfil_html
+                    }
+                    pdf_filename = create_manual_pdf_from_template(datos_pdf, empleado['cargo'], empleado=empleado['nombre'])
+                    my_bar.progress(85, text="Subiendo a Google Drive...")
+                    upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
+                    my_bar.progress(100, text="¡Completado!")
+                    time.sleep(1)
+                    my_bar.empty()
+                    st.success(f"Manual generado correctamente para {empleado['cargo']}.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error durante la generación: {e}")
 
-            st.markdown(f"**Enlace para {seleccion}:**")
-            st.code(url_evaluacion, language="text")
-            st.markdown(f'''
-                <a href="{whatsapp_link}" target="_blank" style="
-                    display: inline-block;
-                    padding: 12px 20px;
-                    background-color: #25D366;
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 8px;
-                    font-weight: bold;">
-                    💬 Abrir en WhatsApp
+# ========== PESTAÑA 2: EVALUACIÓN ==========
+if tab_eval:
+    with tab_eval:
+        st.header(f"Evaluación: {empleado['nombre']}")
+        eval_key = f"eval_form_{empleado['cedula']}"
+        id_db_eval = f"EVAL_FORM_{empleado['cedula']}"
+        col_refresh, col_space = st.columns([1, 4])
+        with col_refresh:
+            if st.button("🔄 Generar Nuevo Cuestionario", help="Olvida el formulario actual y crea uno nuevo con IA"):
+                if eval_key in st.session_state:
+                    del st.session_state[eval_key]
+                st.rerun()
+        if eval_key not in st.session_state:
+            saved_json = get_saved_content(id_db_eval, "EVAL_FORM")
+            if saved_json:
+                try:
+                    st.session_state[eval_key] = json.loads(saved_json)
+                    st.toast("Formulario cargado de memoria.", icon="📂")
+                except:
+                    st.session_state[eval_key] = None
+            if not st.session_state.get(eval_key):
+                with st.spinner(f"🧠 La IA está diseñando preguntas específicas para {empleado['cargo']}..."):
+                    try:
+                        nueva_eval = generate_evaluation(empleado['cargo'], st.session_state["company_context"])
+                        if nueva_eval:
+                            st.session_state[eval_key] = nueva_eval
+                            save_content_to_memory(id_db_eval, "EVAL_FORM", json.dumps(nueva_eval, ensure_ascii=False))
+                    except Exception as e:
+                        st.error(f"Error generando evaluación: {e}")
+        datos_eval = st.session_state.get(eval_key)
+        if datos_eval and "preguntas" in datos_eval:
+            with st.form(key=f"form_eval_render_{empleado['cedula']}"):
+                st.markdown("### 📋 Cuestionario de Desempeño")
+                respuestas_usuario = {}
+                for i, p in enumerate(datos_eval["preguntas"]):
+                    st.markdown(f"**{i+1}. {p.get('texto', 'Pregunta sin texto')}**")
+                    opciones = p.get('opciones', ["1", "2", "3", "4", "5"])
+                    respuestas_usuario[f"p_{i}"] = st.radio(
+                        "Seleccione una opción:",
+                        options=opciones,
+                        key=f"radio_{empleado['cedula']}_{i}",
+                        horizontal=True,
+                        label_visibility="collapsed"
+                    )
+                    st.divider()
+                comentarios = st.text_area("💬 Observaciones finales del evaluador:", height=100)
+                submit_eval = st.form_submit_button("💾 Guardar Evaluación Completa", use_container_width=True, type="primary")
+                if submit_eval:
+                    with st.spinner("Guardando respuestas y procesando..."):
+                        paquete_respuestas = {
+                            "metadata": empleado,
+                            "respuestas": respuestas_usuario,
+                            "comentarios": comentarios,
+                            "fecha_registro": datetime.datetime.now().isoformat()
+                        }
+                        id_resp = f"EVAL_RESP_{empleado['cedula']}"
+                        save_content_to_memory(id_resp, "EVALUACION", json.dumps(paquete_respuestas, ensure_ascii=False))
+                        if f"analisis_{empleado['cedula']}" in st.session_state:
+                            del st.session_state[f"analisis_{empleado['cedula']}"]
+                        st.success("✅ Evaluación guardada exitosamente.")
+                        st.balloons()
+        else:
+            st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
+
+# ========== PESTAÑA 3: RESULTADOS ==========
+if tab_resultados:
+    with tab_resultados:
+        st.header(f"Resultados: {empleado['nombre']}")
+        id_resp = f"EVAL_RESP_{empleado['cedula']}"
+        raw_eval = get_saved_content(id_resp, "EVALUACION")
+        if raw_eval:
+            col_kpi1, col_kpi2 = st.columns(2)
+            eval_data = json.loads(raw_eval)
+            fecha_eval = eval_data.get("fecha_registro", "")[:10]
+            with col_kpi1:
+                st.info(f"📅 Última evaluación: {fecha_eval}")
+            analysis_key = f"analisis_{empleado['cedula']}"
+            if st.button("🔄 Actualizar Análisis IA"):
+                if analysis_key in st.session_state:
+                    del st.session_state[analysis_key]
+                st.rerun()
+            if analysis_key not in st.session_state:
+                with st.chat_message("assistant"):
+                    with st.spinner("Analizando fortalezas y debilidades..."):
+                        resultado_analisis = analyze_results(raw_eval)
+                        st.session_state[analysis_key] = resultado_analisis
+            st.markdown("---")
+            st.markdown(st.session_state[analysis_key], unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Aún no se ha realizado ninguna evaluación para este colaborador.")
+            st.markdown("Vaya a la pestaña **'Evaluación de Desempeño'** para completar una.")
+
+# ========== PESTAÑA 4: COMPARTIR ==========
+if tab_share:
+    with tab_share:
+        st.header("📲 Enviar Evaluación Remota")
+        st.markdown("Genere un enlace seguro para que el colaborador o un supervisor realice la evaluación desde su dispositivo.")
+        col_link, col_qr = st.columns([2, 1])
+        with col_link:
+            token_seguro = base64.b64encode(str(empleado['cedula']).encode()).decode()
+            base_url = "https://servinet.datovatenexuspro.com"
+            link_final = f"{base_url}/?cedula={empleado['cedula']}&token={token_seguro}"
+            st.code(link_final, language="text")
+            mensaje_ws = (
+                f"👋 Hola, necesitamos realizar la evaluación de desempeño de *{empleado['nombre']}*.\n\n"
+                f"Por favor ingresa al siguiente enlace para completar el formulario:\n{link_final}\n\n"
+                "¡Gracias!"
+            )
+            mensaje_encoded = urllib.parse.quote(mensaje_ws)
+            st.markdown(f"""
+                <a href="https://web.whatsapp.com/send?text={mensaje_encoded}" target="_blank">
+                    <button style="
+                        background-color:#25D366; 
+                        color:white; 
+                        border:none; 
+                        padding:10px 20px; 
+                        border-radius:5px; 
+                        font-size:16px; 
+                        cursor:pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;">
+                        <span style="font-size: 20px;">📱</span> Enviar por WhatsApp
+                    </button>
                 </a>
-            ''', unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        with col_qr:
+            st.info("💡 Tip: Copia el enlace y envíalo por correo si prefieres.")
