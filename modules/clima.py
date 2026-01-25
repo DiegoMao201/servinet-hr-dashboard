@@ -65,13 +65,15 @@ def render_clima_page(cedula, token):
         client = connect_to_drive()
         spreadsheet = client.open_by_key(SPREADSHEET_ID)
         sheet = spreadsheet.worksheet("4_clima_laboral")
-        sheet.append_row([
-            datos['NOMBRE COMPLETO'],
-            datos.get('CEDULA', ''),
-            datos.get('CARGO', ''),
-            datos.get('DEPARTAMENTO', ''),
+        # CONVIERTE TODO A STRING
+        fila = [
+            str(datos['NOMBRE COMPLETO']),
+            str(datos.get('CEDULA', '')),
+            str(datos.get('CARGO', '')),
+            str(datos.get('DEPARTAMENTO', '')),
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            *[respuestas[p] for p in preguntas]
-        ])
+            *[str(respuestas[p]) for p in preguntas]
+        ]
+        sheet.append_row(fila)
         st.success("¡Encuesta registrada! Gracias por tu honestidad y participación.")
         st.balloons()
