@@ -256,7 +256,43 @@ with tab2:
             with st.spinner("Buscando manual..."):
                 manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
             if manual_file_id:
-                st.download_button("📥 Descargar Manual PDF", download_manual_from_drive(manual_file_id), f"Manual_{datos.get('CARGO', '').replace(' ', '_')}.pdf", "application/pdf")
+                pdf_bytes = download_manual_from_drive(manual_file_id)
+                st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{datos.get('CARGO', '').replace(' ', '_')}.pdf", "application/pdf")
+                
+                # --- NUEVO: Botón para enviar por WhatsApp ---
+                import urllib.parse
+                # Genera un enlace de visualización de Google Drive (en vez de descarga directa)
+                drive_url = f"https://drive.google.com/file/d/{manual_file_id}/view"
+                nombre_empleado = datos.get("NOMBRE COMPLETO", "")
+                cargo_empleado = datos.get("CARGO", "")
+                mensaje = (
+                    f"Hola {nombre_empleado},%0A%0A"
+                    f"Te compartimos tu Manual de Funciones para el cargo de *{cargo_empleado}* en SERVINET.%0A"
+                    "Este documento es clave para tu desarrollo profesional y para que tengas claridad sobre tus responsabilidades y oportunidades de crecimiento.%0A%0A"
+                    f"Puedes consultarlo aquí:%0A{drive_url}%0A%0A"
+                    "Si tienes dudas o sugerencias, no dudes en comunicarte.%0A%0A"
+                    "Un saludo cordial,%0A"
+                    "Psicóloga Carolina Perez%0A"
+                    "Gestión Humana SERVINET"
+                )
+                mensaje_encoded = urllib.parse.quote(mensaje)
+                celular = datos.get("CELULAR", "")
+                st.markdown(f"""
+                    <a href="https://web.whatsapp.com/send?phone={celular}&text={mensaje_encoded}" target="_blank">
+                        <button style="
+                            background-color:#25D366; 
+                            color:white; 
+                            border:none; 
+                            padding:8px 18px; 
+                            border-radius:5px; 
+                            font-size:15px; 
+                            cursor:pointer;
+                            margin-top:8px;">
+                            📲 Enviar Manual por WhatsApp
+                        </button>
+                    </a>
+                """, unsafe_allow_html=True)
+                st.success("Manual disponible y listo para socializar por WhatsApp.")
             else:
                 st.warning("No hay manual para este cargo.")
 

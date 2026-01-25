@@ -205,11 +205,6 @@
         margin-bottom: 0 !important;
         page-break-inside: avoid !important;
       }
-      /* Forzar que el grid respete la estructura */
-      body {
-        orphans: 2;
-        widows: 2;
-      }
     }
   </style>
 </head>
@@ -232,7 +227,7 @@
   <!-- GRID DE CARGOS -->
   <div class="cargo-grid">
     {% for cargo in cargos_info %}
-      <div class="cargo-card" style="border-left-color: {{ colores_depto.get(cargo.departamento, '#3b82f6') }};">
+      <div class="cargo-card" style="border-left-color: {{ colores_depto.get(cargo.departamento, '#3b82f6') or '#3b82f6' }};">
         <div class="cargo-title">{{ cargo.cargo }}</div>
         <div class="cargo-depto">{{ cargo.departamento }}</div>
         <div class="cargo-desc">{{ cargo.descripcion }}</div>

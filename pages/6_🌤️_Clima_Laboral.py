@@ -78,30 +78,47 @@ with tab2:
     st.header("📈 Resultados Globales de Clima Laboral")
     if not df_clima.empty:
         preguntas = [col for col in df_clima.columns if col.startswith("¿")]
-        # --- Conversión a numérico ---
         for col in preguntas:
             df_clima[col] = pd.to_numeric(df_clima[col], errors='coerce')
 
         st.subheader("Promedio Global por Pregunta")
-        promedios = df_clima[preguntas].mean().sort_values(ascending=False)
-        st.bar_chart(promedios)
-
-        st.subheader("Distribución de Respuestas por Pregunta")
         import plotly.express as px
-        for col in preguntas:
-            fig = px.histogram(df_clima, x=col, nbins=11, title=col, color_discrete_sequence=['#3b82f6'])
-            st.plotly_chart(fig, use_container_width=True)
+        promedios = df_clima[preguntas].mean().sort_values(ascending=True)
+        fig = px.bar(
+            promedios,
+            orientation='h',
+            color=promedios,
+            color_continuous_scale='Blues',
+            labels={'value': 'Promedio', 'index': 'Pregunta'},
+            height=40 * len(promedios) + 60,
+            title="Promedio Global por Pregunta"
+        )
+        fig.update_layout(
+            yaxis=dict(tickfont=dict(size=13)),
+            xaxis=dict(range=[0, 10], tickfont=dict(size=13)),
+            margin=dict(l=10, r=10, t=40, b=10),
+            coloraxis_showscale=False,
+            plot_bgcolor='#f8fafc'
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Promedio de Clima por Cargo")
         clima_por_cargo = df_clima.groupby("CARGO")[preguntas].mean()
-        st.dataframe(clima_por_cargo.style.background_gradient(cmap="Blues"), use_container_width=True)
+        st.dataframe(clima_por_cargo, use_container_width=True)
 
         st.subheader("Mapa de Calor de Clima Laboral por Cargo")
         import plotly.figure_factory as ff
         z = clima_por_cargo.values
         x = clima_por_cargo.columns.tolist()
         y = clima_por_cargo.index.tolist()
-        fig = ff.create_annotated_heatmap(z, x=x, y=y, colorscale='Blues', showscale=True)
+        fig = ff.create_annotated_heatmap(
+            z, x=x, y=y, colorscale='Blues', showscale=True,
+            annotation_text=[[f"{v:.1f}" if not pd.isna(v) else "" for v in row] for row in z]
+        )
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=40, b=10),
+            plot_bgcolor='#f8fafc'
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
