@@ -222,3 +222,59 @@ for _, row in df_cargos.iterrows():
     })
 """
 
+# Puedes poner esto en modules/pdf_generator.py o al inicio de tu página
+
+import re
+
+def extraer_mision(html):
+    match = re.search(r'II\. Propósito Principal.*?<div[^>]*class="mission-text"[^>]*>(.*?)</div>', html, re.DOTALL)
+    if match:
+        return re.sub('<.*?>', '', match.group(1)).strip()
+    return ""
+
+def extraer_funciones(html):
+    # Busca la sección de funciones y devuelve una lista de strings
+    funciones = re.findall(r'<li[^>]*class="function-item"[^>]*>.*?<div[^>]*class="func-text"[^>]*>(.*?)</div>', html, re.DOTALL)
+    return [re.sub('<.*?>', '', f).strip() for f in funciones]
+
+def extraer_educacion(html):
+    match = re.search(r'Nivel Educativo.*?<td>(.*?)</td>', html, re.DOTALL)
+    if match:
+        return re.sub('<.*?>', '', match.group(1)).strip()
+    return ""
+
+def extraer_experiencia(html):
+    match = re.search(r'Experiencia Requerida.*?<td>(.*?)</td>', html, re.DOTALL)
+    if match:
+        return re.sub('<.*?>', '', match.group(1)).strip()
+    return ""
+
+def extraer_conocimientos(html):
+    # Busca la lista de conocimientos técnicos
+    conocimientos = re.findall(r'<th>Conocimientos Técnicos</th>.*?<ul[^>]*>(.*?)</ul>', html, re.DOTALL)
+    if conocimientos:
+        return [re.sub('<.*?>', '', item).strip() for item in re.findall(r'<li>(.*?)</li>', conocimientos[0], re.DOTALL)]
+    return []
+
+def extraer_idiomas(html):
+    match = re.search(r'<th>Idiomas</th>\s*<td>(.*?)</td>', html, re.DOTALL)
+    if match:
+        return re.sub('<.*?>', '', match.group(1)).strip()
+    return ""
+
+def extraer_competencias(html):
+    competencias = re.findall(r'<div class="skill-tag">.*?>(.*?)</div>', html, re.DOTALL)
+    return [re.sub('<.*?>', '', c).strip() for c in competencias]
+
+def extraer_kpis(html):
+    # Busca la tabla de KPIs y devuelve una lista de dicts
+    kpis = []
+    kpi_rows = re.findall(r'<tr>\s*<td><b>(.*?)</b></td>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*</tr>', html, re.DOTALL)
+    for nombre, frecuencia, meta in kpi_rows:
+        kpis.append({
+            "nombre": re.sub('<.*?>', '', nombre).strip(),
+            "frecuencia": re.sub('<.*?>', '', frecuencia).strip(),
+            "meta": re.sub('<.*?>', '', meta).strip()
+        })
+    return kpis
+

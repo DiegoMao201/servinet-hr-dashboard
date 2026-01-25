@@ -17,7 +17,11 @@ from modules.drive_manager import (
     upload_manual_to_drive,
     set_file_public
 )
-from modules.pdf_generator import create_manual_pdf_from_template
+from modules.pdf_generator import (
+    create_manual_pdf_from_template, 
+    extraer_mision, extraer_funciones, extraer_educacion, extraer_experiencia,
+    extraer_conocimientos, extraer_idiomas, extraer_competencias, extraer_kpis
+)
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
