@@ -3,6 +3,7 @@ import streamlit as st
 from modules.database import connect_to_drive, SPREADSHEET_ID, get_employees
 import base64
 import pandas as pd
+import urllib.parse
 
 st.set_page_config(page_title="Clima Laboral", page_icon="🌤️", layout="wide")
 st.title("🌤️ Encuesta de Clima Laboral")
@@ -27,12 +28,13 @@ else:
     for _, row in df_pendientes.iterrows():
         token = base64.b64encode(str(row['CEDULA']).encode()).decode()
         url = f"https://servinet.datovatenexuspro.com/?clima={row['CEDULA']}&token={token}"
+        url_encoded = urllib.parse.quote(url, safe='')
         mensaje_ws = (
             f"🌤️ Hola {row['NOMBRE COMPLETO']},%0A"
             "Te invitamos a diligenciar la Encuesta de Clima Laboral de SERVINET.%0A"
             "Tu opinión es muy importante para nosotros y nos ayuda a mejorar el ambiente de trabajo.%0A"
             "Por favor ingresa al siguiente enlace seguro y responde la encuesta: "
-            f"{url}%0A"
+            f"{url_encoded}%0A"
             "¡Gracias por tu participación! 😊"
         )
         st.markdown(f"""

@@ -311,19 +311,29 @@ if tab_resultados:
 if tab_share:
     with tab_share:
         st.header("📲 Enviar Evaluación Remota")
-        st.markdown("Genere un enlace seguro para que el colaborador o un supervisor realice la evaluación desde su dispositivo.")
+        st.markdown("Genere un enlace seguro para que el jefe realice la evaluación de desempeño de su colaborador.")
+
         col_link, col_qr = st.columns([2, 1])
         with col_link:
+            import urllib.parse
             token_seguro = base64.b64encode(str(empleado['cedula']).encode()).decode()
             base_url = "https://servinet.datovatenexuspro.com"
             link_final = f"{base_url}/?cedula={empleado['cedula']}&token={token_seguro}"
+            link_final_encoded = urllib.parse.quote(link_final, safe='')
+
+            nombre_subordinado = empleado['nombre']
+            nombre_jefe = df[df['NOMBRE COMPLETO'] == nombre_subordinado].iloc[0].get('JEFE_DIRECTO', 'Jefe no asignado')
+
             mensaje_ws = (
-                f"👋 Hola, necesitamos realizar la evaluación de desempeño de *{empleado['nombre']}*. "
-                "Por favor ingresa al siguiente enlace para completar el formulario: "
-                f"{link_final} "
-                "¡Gracias!"
+                f"👋 Hola {nombre_jefe},%0A%0A"
+                f"Te invitamos cordialmente a realizar la evaluación de desempeño de tu colaborador *{nombre_subordinado}* en SERVINET.%0A"
+                "Tu retroalimentación es fundamental para el crecimiento y desarrollo del equipo.%0A%0A"
+                "Por favor ingresa al siguiente enlace seguro y completa el formulario de evaluación:%0A"
+                f"{link_final}%0A%0A"
+                "¡Gracias por tu compromiso y liderazgo! 🌟"
             )
             mensaje_encoded = urllib.parse.quote(mensaje_ws)
+
             st.markdown(f"""
                 <a href="https://web.whatsapp.com/send?text={mensaje_encoded}" target="_blank">
                     <button style="
@@ -337,7 +347,7 @@ if tab_share:
                         display: flex;
                         align-items: center;
                         gap: 10px;">
-                        <span style="font-size: 20px;">📱</span> Enviar por WhatsApp
+                        <span style="font-size: 20px;">📱</span> Enviar por WhatsApp al jefe
                     </button>
                 </a>
             """, unsafe_allow_html=True)
