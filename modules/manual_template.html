@@ -1,167 +1,395 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Manual de Funciones - {{ cargo }}</title>
+  <title>Manual de Funciones - {{ cargo.nombre }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* --- Configuración General y de Página --- */
+    :root {
+      --primary: #1e3a8a;
+      --accent: #3b82f6;
+      --bg-light: #f8fafc;
+      --text-dark: #1e293b;
+      --text-gray: #64748b;
+      --border: #e2e8f0;
+      --success: #059669;
+    }
     @page {
       size: A4;
-      margin: 20mm; /* Margen más equilibrado */
-      @bottom-center {
+      margin: 15mm 15mm 20mm 15mm;
+      @bottom-right {
         content: "Página " counter(page) " de " counter(pages);
-        font-size: 10px;
-        color: #6b7280;
+        font-size: 9pt;
+        color: #94a3b8;
+        font-family: sans-serif;
+      }
+      @bottom-left {
+        content: "CONFIDENCIAL - USO INTERNO";
+        font-size: 8pt;
+        color: #cbd5e1;
+        font-family: sans-serif;
       }
     }
     body {
-      font-family: 'Helvetica Neue', Arial, sans-serif; /* Fuente más moderna */
-      color: #1f2937; /* Color de texto más suave que el negro puro */
-      line-height: 1.6;
-      font-size: 11pt;
+      font-family: 'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif;
+      color: var(--text-dark);
+      line-height: 1.5;
+      font-size: 10.5pt;
+      background: white;
     }
-
-    /* --- Encabezado y Portada --- */
-    .header {
+    h1, h2, h3 { margin: 0; color: var(--primary); }
+    ul { padding-left: 20px; margin: 0; }
+    p { margin: 0 0 10px 0; text-align: justify; }
+    .doc-header {
+      display: table;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 25px;
+      border-collapse: collapse;
+    }
+    .doc-header td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      vertical-align: middle;
+    }
+    .logo-cell { width: 20%; text-align: center; background: white; }
+    .logo-img { max-height: 50px; width: auto; }
+    .title-cell {
+      width: 50%;
       text-align: center;
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
+      background: var(--bg-light);
     }
-    .logo {
-      max-height: 80px; /* Aumenta el tamaño del logo */
-      margin-bottom: 15px;
-    }
-    .title {
-      font-size: 28pt;
-      color: #111827;
-      font-weight: bold;
-      margin: 0;
-    }
-    .subtitle {
-      font-size: 16pt;
-      color: #3b82f6; /* Azul corporativo */
-      margin-top: 5px;
-    }
-    .info-table {
-      width: 100%;
-      margin-top: 30px;
-      border-collapse: collapse;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      overflow: hidden; /* Para que el borde redondeado funcione */
-    }
-    .info-table td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #e5e7eb;
-      font-size: 10pt;
-    }
-    .info-table tr:last-child td { border-bottom: none; }
-    .info-table td:first-child {
-      font-weight: bold;
-      background-color: #f9fafb;
-      width: 30%;
-    }
-
-    /* --- Estructura de Secciones --- */
-    .section {
-      margin-bottom: 28px;
-      page-break-inside: avoid; /* MEJORA CLAVE: Evita que la sección se parta */
-    }
-    .section-title {
-      font-size: 16pt;
-      color: #1e3a8a; /* Azul oscuro */
-      font-weight: bold;
-      margin-bottom: 12px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid #3b82f6;
-    }
-
-    /* --- Estilos de Contenido de la IA --- */
-    .section p, .section li {
-      text-align: justify;
-    }
-    .section ul, .section ol {
-      padding-left: 25px;
-      page-break-inside: avoid; /* MEJORA CLAVE: Evita que las listas se partan */
-    }
-    .section li {
-      margin-bottom: 8px;
-    }
-    .section strong, .section b {
-      color: #172554; /* Resaltar negritas */
-    }
-
-    /* --- Estilo Profesional para Tablas (ej: KPIs) --- */
-    .section table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-      font-size: 10pt;
-      page-break-inside: avoid; /* MEJORA CLAVE: Intenta mantener la tabla en una página */
-    }
-    .section th, .section td {
-      border: 1px solid #d1d5db;
-      padding: 10px 12px;
-      text-align: left;
-    }
-    .section th {
-      background-color: #dbeafe; /* Azul claro */
-      color: #1e3a8a;
-      font-weight: bold;
-    }
-    .section tr:nth-child(even) {
-      background-color: #f9fafb; /* Cebra para mejor lectura */
-    }
-
-    /* --- Pie de Página y Firmas --- */
-    .footer {
-      margin-top: 50px;
-      font-size: 9pt;
-      color: #6b7280;
-    }
-    .firma-container {
-      margin-top: 80px;
+    .title-cell h1 { font-size: 16pt; text-transform: uppercase; letter-spacing: 0.5px; }
+    .title-cell h2 { font-size: 9pt; color: var(--text-gray); font-weight: normal; margin-top: 4px; }
+    .meta-cell { width: 30%; padding: 0 !important; }
+    .meta-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .meta-table td { border: none; border-bottom: 1px solid var(--border); padding: 4px 8px; }
+    .meta-table tr:last-child td { border-bottom: none; }
+    .meta-label { font-weight: bold; color: var(--primary); width: 40%; }
+    .section-box {
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 4px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: white;
       page-break-inside: avoid;
     }
-    .firma-line {
-      border-top: 1px solid #4b5563;
-      width: 280px;
-      margin-top: 40px;
-      margin-bottom: 8px;
+    .section-title {
+      font-size: 12pt;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--bg-light);
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .firma-label {
+    .section-title i { color: var(--accent); }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
       font-size: 10pt;
-      color: #4b5563;
     }
+    .info-item { margin-bottom: 8px; }
+    .info-label {
+      display: block;
+      font-size: 8pt;
+      color: var(--text-gray);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .info-value { font-weight: 600; color: var(--text-dark); }
+    .mission-box {
+      background: linear-gradient(to right, #eff6ff, #ffffff);
+      border: 1px solid #dbeafe;
+      border-left: 4px solid var(--accent);
+      padding: 20px;
+      border-radius: 6px;
+      margin-bottom: 25px;
+      font-style: italic;
+      color: #334155;
+      position: relative;
+    }
+    .mission-quote {
+      position: absolute; top: 10px; left: 10px;
+      font-size: 30pt; color: #bfdbfe; opacity: 0.5; font-family: serif;
+    }
+    .mission-text { position: relative; z-index: 2; padding-left: 20px; }
+    .function-list { list-style: none; padding: 0; }
+    .function-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+    }
+    .func-number {
+      background: var(--primary);
+      color: white;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 9pt;
+      font-weight: bold;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .func-text { text-align: justify; }
+    .pro-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5pt;
+      margin-top: 10px;
+      page-break-inside: avoid;
+    }
+    .pro-table th {
+      background: var(--bg-light);
+      color: var(--primary);
+      text-align: left;
+      padding: 10px;
+      border: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 9pt;
+      text-transform: uppercase;
+    }
+    .pro-table td {
+      border: 1px solid var(--border);
+      padding: 10px;
+      vertical-align: top;
+    }
+    .pro-table tr:nth-child(even) { background: #fafafa; }
+    .skills-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .skill-tag {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 9pt;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .skill-tag i { color: var(--success); font-size: 8pt; }
+    .level-dot {
+      height: 8px; width: 8px; border-radius: 50%; background: #cbd5e1; display: inline-block;
+    }
+    .level-active { background: var(--accent); }
+    .signatures-section {
+      margin-top: 50px;
+      page-break-inside: avoid;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+      background: var(--bg-light);
+    }
+    .signatures-grid {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 20px 0;
+    }
+    .sig-box {
+      display: table-cell;
+      text-align: center;
+      vertical-align: top;
+    }
+    .sig-line {
+      border-top: 1px solid #334155;
+      margin-top: 40px;
+      margin-bottom: 5px;
+      width: 100%;
+    }
+    .sig-title { font-weight: bold; font-size: 9pt; color: var(--primary); }
+    .sig-role { font-size: 8pt; color: var(--text-gray); }
   </style>
 </head>
 <body>
-  <div class="header">
-    {% if logo_url %}
-      <img src="{{ logo_url }}" class="logo" alt="Logo Servinet">
-    {% endif %}
-    <h1 class="title">Manual de Funciones</h1>
-    <h2 class="subtitle">{{ empresa }}</h2>
-    <table class="info-table">
-      <tr><td><b>Cargo:</b></td><td>{{ cargo }}</td></tr>
-      <tr><td><b>Departamento:</b></td><td>{{ departamento }}</td></tr>
-      <tr><td><b>Fecha de Emisión:</b></td><td>{{ fecha_emision }}</td></tr>
-      <tr><td><b>Versión:</b></td><td>{{ version }}</td></tr>
-      <tr><td><b>Código:</b></td><td>{{ codigo_doc }}</td></tr>
+  <table class="doc-header">
+    <tr>
+      <td class="logo-cell">
+        {% if logo_url %}
+          <img src="{{ logo_url }}" class="logo-img" alt="Logo">
+        {% else %}
+          <b>LOGO</b>
+        {% endif %}
+      </td>
+      <td class="title-cell">
+        <h1>Manual de Funciones</h1>
+        <h2>Gestión del Talento Humano</h2>
+      </td>
+      <td class="meta-cell">
+        <table class="meta-table">
+          <tr>
+            <td class="meta-label">Código:</td>
+            <td>{{ doc.codigo }}</td>
+          </tr>
+          <tr>
+            <td class="meta-label">Versión:</td>
+            <td>{{ doc.version }}</td>
+          </tr>
+          <tr>
+            <td class="meta-label">Fecha:</td>
+            <td>{{ doc.fecha }}</td>
+          </tr>
+          <tr>
+            <td class="meta-label">Estado:</td>
+            <td style="color: green; font-weight:bold;">VIGENTE</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <div class="section-box">
+    <div class="section-title"><i class="fa-solid fa-id-card"></i> I. Identificación del Cargo</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Nombre del Cargo</span>
+        <span class="info-value" style="font-size: 1.2em; color: var(--accent);">{{ cargo.nombre }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Departamento / Área</span>
+        <span class="info-value">{{ cargo.area }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Reporta A (Jefe Inmediato)</span>
+        <span class="info-value">{{ cargo.jefe_inmediato }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Cargos a su cargo</span>
+        <span class="info-value">{{ cargo.subordinados }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Modalidad de Trabajo</span>
+        <span class="info-value">{{ cargo.modalidad }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Sede / Ubicación</span>
+        <span class="info-value">{{ cargo.sede }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mission-box">
+    <div class="mission-quote">“</div>
+    <div class="section-title" style="border:none; margin-bottom:5px; font-size:11pt;"><i class="fa-solid fa-bullseye"></i> II. Propósito Principal</div>
+    <div class="mission-text">
+      {{ cargo.mision }}
+    </div>
+  </div>
+
+  <div class="section-box">
+    <div class="section-title"><i class="fa-solid fa-list-check"></i> III. Funciones y Responsabilidades</div>
+    <ul class="function-list">
+      {% for funcion in cargo.funciones %}
+      <li class="function-item">
+        <div class="func-number">{{ loop.index }}</div>
+        <div class="func-text">{{ funcion }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="section-box">
+    <div class="section-title"><i class="fa-solid fa-user-graduate"></i> IV. Perfil del Cargo</div>
+    <table class="pro-table">
+      <tr>
+        <th width="30%">Nivel Educativo</th>
+        <td>{{ cargo.educacion }}</td>
+      </tr>
+      <tr>
+        <th>Experiencia Requerida</th>
+        <td>{{ cargo.experiencia }}</td>
+      </tr>
+      <tr>
+        <th>Conocimientos Técnicos</th>
+        <td>
+          <ul style="margin-top:0; padding-left:15px;">
+            {% for con in cargo.conocimientos %}
+              <li>{{ con }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <th>Idiomas</th>
+        <td>{{ cargo.idiomas }}</td>
+      </tr>
     </table>
   </div>
 
-  <!-- Contenido generado por la IA se renderiza aquí -->
-  {{ perfil_html | safe }}
-
-  <div class="footer">
-    Este documento es propiedad exclusiva de SERVINET. Prohibida su reproducción total o parcial sin autorización escrita.
+  <div class="section-box">
+    <div class="section-title"><i class="fa-solid fa-brain"></i> V. Competencias Organizacionales</div>
+    <div style="margin-bottom: 15px;">
+      <h4 style="font-size:9pt; margin-bottom:5px; color:#64748b;">Habilidades Blandas (Soft Skills)</h4>
+      <div class="skills-container">
+        {% for comp in cargo.competencias %}
+        <div class="skill-tag">
+          <i class="fa-solid fa-check"></i> {{ comp }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 
-  <div class="firma-container">
-    <div class="firma-line"></div>
-    <div class="firma-label">Firma del Responsable de RRHH</div>
+  {% if cargo.kpis %}
+  <div class="section-box">
+    <div class="section-title"><i class="fa-solid fa-chart-line"></i> VI. Indicadores de Medición (KPIs)</div>
+    <table class="pro-table">
+      <thead>
+        <tr>
+          <th>Indicador</th>
+          <th>Frecuencia</th>
+          <th>Meta Esperada</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for kpi in cargo.kpis %}
+        <tr>
+          <td><b>{{ kpi.nombre }}</b></td>
+          <td>{{ kpi.frecuencia }}</td>
+          <td>{{ kpi.meta }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="signatures-section">
+    <div style="text-align: center; margin-bottom: 15px; font-weight: bold; color: var(--primary);">CONTROL DE APROBACIÓN</div>
+    <div class="signatures-grid">
+      <div class="sig-box">
+        <div style="height: 50px;"></div> <div class="sig-line"></div>
+        <div class="sig-title">ELABORADO POR</div>
+        <div class="sig-role">Analista de D.O.</div>
+        <div class="sig-role">Fecha: {{ doc.fecha }}</div>
+      </div>
+      <div class="sig-box">
+        <div style="height: 50px;"></div> <div class="sig-line"></div>
+        <div class="sig-title">REVISADO POR</div>
+        <div class="sig-role">{{ cargo.jefe_inmediato }}</div>
+        <div class="sig-role">Jefe Inmediato</div>
+      </div>
+      <div class="sig-box">
+        <div style="height: 50px;"></div> <div class="sig-line"></div>
+        <div class="sig-title">APROBADO POR</div>
+        <div class="sig-role">Gerencia General</div>
+        <div class="sig-role">SERVINET S.A.S</div>
+      </div>
+    </div>
   </div>
 </body>
 </html>

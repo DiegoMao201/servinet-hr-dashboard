@@ -14,9 +14,12 @@ from modules.drive_manager import (
     get_or_create_manuals_folder,
     find_manual_in_drive,
     download_manual_from_drive,
-    upload_manual_to_drive
+    upload_manual_to_drive,
+    set_file_public
 )
 from modules.pdf_generator import create_manual_pdf_from_template
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
 
 # --- CONFIGURACIÓN INICIAL DE LA PÁGINA ---
 st.set_page_config(
@@ -204,9 +207,43 @@ if tab_manual:
                         "cargo": empleado['cargo'],
                         "perfil_html": perfil_html
                     }
-                    pdf_filename = create_manual_pdf_from_template(datos_pdf, empleado['cargo'], empleado=empleado['nombre'])
+                    cargo_dict = {
+                        "nombre": empleado['cargo'],
+                        "area": empleado['departamento'],
+                        "jefe_inmediato": empleado.get('jefe_directo', ''),
+                        "subordinados": empleado.get('subordinados', ''),
+                        "modalidad": empleado.get('modalidad', ''),
+                        "sede": empleado.get('sede', ''),
+                        "mision": extraer_mision(perfil_html),  # Puedes extraerlo del HTML generado
+                        "funciones": extraer_funciones(perfil_html),  # idem
+                        "educacion": extraer_educacion(perfil_html),
+                        "experiencia": extraer_experiencia(perfil_html),
+                        "conocimientos": extraer_conocimientos(perfil_html),
+                        "idiomas": extraer_idiomas(perfil_html),
+                        "competencias": extraer_competencias(perfil_html),
+                        "kpis": extraer_kpis(perfil_html)
+                    }
+                    doc_dict = {
+                        "codigo": f"MF-{empleado['cedula']}-{now.year}",
+                        "version": "1.0 IA",
+                        "fecha": now.strftime("%d/%m/%Y"),
+                    }
+                    template_dir = os.path.join(os.path.dirname(__file__), "../modules")
+                    env = Environment(loader=FileSystemLoader(template_dir))
+                    template = env.get_template("manual_template.html")
+
+                    html_content = template.render(
+                        cargo=cargo_dict,
+                        doc=doc_dict,
+                        logo_url="logo_servinet.jpg"
+                    )
+                    pdf_filename = f"Manual_{cargo_dict['nombre'].replace(' ', '_')}.pdf"
+                    HTML(string=html_content, base_url=template_dir).write_pdf(pdf_filename)
+
                     my_bar.progress(85, text="Subiendo a Google Drive...")
-                    upload_manual_to_drive(pdf_filename, folder_id=manuals_folder_id)
+                    folder_id = get_or_create_manuals_folder()
+                    file_id = upload_manual_to_drive(pdf_filename, folder_id)
+                    set_file_public(file_id)
                     my_bar.progress(100, text="¡Completado!")
                     time.sleep(1)
                     my_bar.empty()
