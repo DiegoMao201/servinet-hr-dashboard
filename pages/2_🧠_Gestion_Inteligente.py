@@ -202,7 +202,6 @@ if tab_manual:
                         "vigencia": str(now.year),
                         "fecha_emision": now.strftime("%d/%m/%Y"),
                         "cargo": empleado['cargo'],
-                        "empleado": empleado['nombre'],
                         "perfil_html": perfil_html
                     }
                     pdf_filename = create_manual_pdf_from_template(datos_pdf, empleado['cargo'], empleado=empleado['nombre'])
