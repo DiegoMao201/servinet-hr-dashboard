@@ -126,3 +126,25 @@ def find_organigrama_in_drive(folder_id):
 def download_organigrama_from_drive(file_id):
     """Descarga el PDF del organigrama desde Drive."""
     return download_manual_from_drive(file_id)
+
+def set_file_public(file_id):
+    """
+    Cambia los permisos del archivo en Drive para que cualquiera con el enlace pueda verlo.
+    """
+    service = get_drive_service()
+    if not service:
+        return False
+    try:
+        service.permissions().create(
+            fileId=file_id,
+            body={
+                'type': 'anyone',
+                'role': 'reader'
+            },
+            fields='id',
+            supportsAllDrives=True
+        ).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error al cambiar permisos en Drive: {e}")
+        return False

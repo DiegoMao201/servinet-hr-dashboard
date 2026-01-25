@@ -13,7 +13,8 @@ try:
         find_organigrama_in_drive,
         download_organigrama_from_drive,
         find_manual_in_drive,
-        download_manual_from_drive
+        download_manual_from_drive,
+        set_file_public
     )
     from modules.ai_brain import client as openai_client
     from modules.pdf_generator import export_organigrama_pdf, export_organigrama_pdf_master
@@ -256,13 +257,14 @@ with tab2:
             with st.spinner("Buscando manual..."):
                 manual_file_id = find_manual_in_drive(datos.get("CARGO", ""), manuals_folder_id)
             if manual_file_id:
+                set_file_public(manual_file_id)
+                drive_url = f"https://drive.google.com/file/d/{manual_file_id}/view"
                 pdf_bytes = download_manual_from_drive(manual_file_id)
                 st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{datos.get('CARGO', '').replace(' ', '_')}.pdf", "application/pdf")
                 
                 # --- NUEVO: Botón para enviar por WhatsApp ---
                 import urllib.parse
                 # Genera un enlace de visualización de Google Drive (en vez de descarga directa)
-                drive_url = f"https://drive.google.com/file/d/{manual_file_id}/view"
                 nombre_empleado = datos.get("NOMBRE COMPLETO", "")
                 cargo_empleado = datos.get("CARGO", "")
                 mensaje = (
