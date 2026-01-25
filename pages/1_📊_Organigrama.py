@@ -187,7 +187,7 @@ with tab1:
                         descripcion_general = f"Error IA: {e}"
 
                 # 3. Generar y subir el PDF
-                pdf_filename = export_organigrama_pdf(cargos_info=cargos_info, descripcion_general=descripcion_general)
+                pdf_filename = export_organigrama_pdf_master(df, descripcion_general)
                 upload_organigrama_to_drive(pdf_filename, manuals_folder_id)
                 st.success("✅ PDF generado y guardado en Drive exitosamente.")
                 st.rerun()
