@@ -16,3 +16,4 @@ weasyprint
 jinja2
 streamlit-echarts
 matplotlib
+beautifulsoup4
