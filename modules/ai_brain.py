@@ -56,21 +56,20 @@ REGLAS ESTRICTAS:
 """
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
-            content = response.choices[0].message.content.replace("```html", "").replace("```", "").strip()
-            
-            # Construimos la sección aquí, fuera de la IA, para tener control total
-            manual_html += f'<div class="section">\n'
-            manual_html += f'  <div class="section-title">{titulo_seccion}</div>\n'
-            manual_html += f'  {content}\n'
-            manual_html += f'</div>\n'
-
+            content = response.choices[0].message.content.strip()
+            if not content or len(content) < 10:
+                content = "<p>Información no disponible. Se requiere completar esta sección.</p>"
         except Exception as e:
-            manual_html += f'<div class="section"><div class="section-title">{titulo_seccion}</div><p>Error al generar contenido: {e}</p></div>\n'
-            
+            content = f"<p>Error al generar contenido: {e}</p>"
+        manual_html += f'<div class="section">\n'
+        manual_html += f'  <div class="section-title">{titulo_seccion}</div>\n'
+        manual_html += f'  {content}\n'
+        manual_html += f'</div>\n'
+
     return manual_html
 
 # --- El resto de las funciones se mantienen intactas ---
