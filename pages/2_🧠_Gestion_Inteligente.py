@@ -197,6 +197,8 @@ if tab_manual:
                         contexto_total += f"\n\n[INSTRUCCIÓN ADICIONAL DEL USUARIO]: {prompt_adicional}"
                     my_bar.progress(25, text="Analizando manuales y estructura...")
                     perfil_html = generate_role_profile_by_sections(empleado['cargo'], contexto_total)
+                    st.markdown("### ⬇️ Vista previa del HTML generado por la IA")
+                    st.code(perfil_html, language="html")
                     my_bar.progress(60, text="Maquetando documento PDF...")
                     logo_path = os.path.abspath("logo_servinet.jpg") if os.path.exists("logo_servinet.jpg") else None
                     now = datetime.datetime.now()
