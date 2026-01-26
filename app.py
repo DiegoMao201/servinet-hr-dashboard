@@ -3,6 +3,7 @@ import os
 from modules._evaluar import render_evaluation_page
 from modules.clima import render_clima_page  # <--- Importa tu función de clima
 from modules.auth import check_password
+from modules.ficha import render_ficha_page
 
 # --- CONFIGURACIÓN INICIAL DE LA PÁGINA ---
 st.set_page_config(
@@ -17,6 +18,8 @@ cedula_eval = params.get("cedula")
 token_eval = params.get("token")
 cedula_clima = params.get("clima")
 token_clima = params.get("token")
+cedula_ficha = params.get("ficha")
+token_ficha = params.get("token")
 
 # 1. Si es enlace de clima laboral, muestra solo la encuesta de clima
 if cedula_clima and token_clima:
@@ -26,7 +29,12 @@ if cedula_clima and token_clima:
 elif cedula_eval and token_eval:
     render_evaluation_page(cedula_eval, token_eval)
 
-# 3. Si es acceso normal, pide contraseña y muestra la app completa
+# 3. Si es enlace de ficha, muestra solo la ficha
+elif cedula_ficha and token_ficha:
+    render_ficha_page(cedula_ficha, token_ficha)
+    st.stop()
+
+# 4. Si es acceso normal, pide contraseña y muestra la app completa
 else:
     if check_password():
         # --- PÁGINA DE BIENVENIDA (Solo se muestra si la contraseña es correcta) ---

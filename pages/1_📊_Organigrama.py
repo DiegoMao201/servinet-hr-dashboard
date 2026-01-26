@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 import textwrap
 from streamlit_echarts import st_echarts 
+import base64
+import urllib.parse
 
 # --- IMPORTACIÓN DE MÓDULOS LOCALES ---
 try:
@@ -263,7 +265,6 @@ with tab2:
                 st.download_button("📥 Descargar Manual PDF", pdf_bytes, f"Manual_{datos.get('CARGO', '').replace(' ', '_')}.pdf", "application/pdf")
                 
                 # --- NUEVO: Botón para enviar por WhatsApp ---
-                import urllib.parse
                 # Genera un enlace de visualización de Google Drive (en vez de descarga directa)
                 nombre_empleado = datos.get("NOMBRE COMPLETO", "")
                 cargo_empleado = datos.get("CARGO", "")
@@ -325,3 +326,39 @@ with tab2:
                             st.error("❌ Error al actualizar. No se encontró al empleado por cédula.")
     else:
         st.warning("⚠️ No se encontraron empleados con los filtros seleccionados.")
+
+    # --- NUEVO: Envío de Ficha por WhatsApp ---
+    st.markdown("---")
+    st.markdown("### 📲 Envío de Ficha de Datos por WhatsApp")
+    st.info("Envía tu ficha de datos a través de WhatsApp para mantener tu información actualizada.")
+    
+    token_seguro = base64.b64encode(str(datos.get("CEDULA")).encode()).decode()
+    base_url = "https://servinet.datovatenexuspro.com"
+    link_ficha = f"{base_url}/?ficha={datos.get('CEDULA')}&token={token_seguro}"
+    mensaje = (
+        f"👋 Hola {datos.get('NOMBRE COMPLETO')},%0A%0A"
+        "Te invitamos cordialmente a revisar y actualizar tu ficha de datos en SERVINET.%0A"
+        "Por favor ingresa al siguiente enlace seguro y completa o corrige tus datos personales y laborales:%0A"
+        f"{link_ficha}%0A%0A"
+        "¡Gracias por tu compromiso y dedicación!%0A"
+        "Gestión Humana SERVINET"
+    )
+    mensaje_encoded = urllib.parse.quote(mensaje)
+
+    st.markdown(f"""
+        <a href="https://web.whatsapp.com/send?phone={datos.get('CELULAR','')}&text={mensaje_encoded}" target="_blank">
+            <button style="
+                background-color:#25D366; 
+                color:white; 
+                border:none; 
+                padding:10px 20px; 
+                border-radius:5px; 
+                font-size:16px; 
+                cursor:pointer;
+                display: flex;
+                align-items: center;
+                gap: 10px;">
+                <span style="font-size: 20px;">📱</span> Enviar Ficha para Actualización
+            </button>
+        </a>
+    """, unsafe_allow_html=True)
