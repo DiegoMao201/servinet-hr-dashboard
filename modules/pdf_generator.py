@@ -4,6 +4,7 @@ from jinja2 import Environment, FileSystemLoader
 import os
 import re
 import datetime
+from bs4 import BeautifulSoup
 
 class PDF(FPDF):
     def header(self):
@@ -224,57 +225,167 @@ for _, row in df_cargos.iterrows():
 
 # Puedes poner esto en modules/pdf_generator.py o al inicio de tu página
 
-import re
+def _find_section_by_title(soup, titles):
+    """
+    Busca una sección por posibles títulos (case-insensitive, lista de variantes).
+    Devuelve el tag de la sección o None.
+    """
+    for section in soup.find_all(class_="section"):
+        title_tag = section.find(class_="section-title")
+        if title_tag:
+            title_text = title_tag.get_text(strip=True).lower()
+            for t in titles:
+                if t.lower() in title_text:
+                    return section
+    return None
 
 def extraer_mision(html):
-    match = re.search(r'II\. Propósito Principal.*?<div[^>]*class="mission-text"[^>]*>(.*?)</div>', html, re.DOTALL)
-    if match:
-        return re.sub('<.*?>', '', match.group(1)).strip()
+    soup = BeautifulSoup(html, "html.parser")
+    # Busca por clase específica primero
+    mission = soup.find(class_="mission-text")
+    if mission:
+        return mission.get_text(strip=True)
+    # Fallback: busca por título de sección
+    section = _find_section_by_title(soup, ["propósito principal", "objetivo del cargo", "misión"])
+    if section:
+        # Busca el primer <div> o <p> después del título
+        for tag in section.find_all(["div", "p"], recursive=False):
+            if tag.get("class") != ["section-title"]:
+                return tag.get_text(strip=True)
     return ""
 
 def extraer_funciones(html):
-    # Busca la sección de funciones y devuelve una lista de strings
-    funciones = re.findall(r'<li[^>]*class="function-item"[^>]*>.*?<div[^>]*class="func-text"[^>]*>(.*?)</div>', html, re.DOTALL)
-    return [re.sub('<.*?>', '', f).strip() for f in funciones]
+    soup = BeautifulSoup(html, "html.parser")
+    # Busca por clase
+    ul = soup.find("ul", class_="function-list")
+    if ul:
+        return [li.get_text(strip=True) for li in ul.find_all("li")]
+    # Fallback: busca por sección
+    section = _find_section_by_title(soup, ["funciones", "responsabilidades"])
+    if section:
+        items = []
+        for li in section.find_all("li"):
+            items.append(li.get_text(strip=True))
+        if items:
+            return items
+        # Fallback: busca <p> en la sección
+        for p in section.find_all("p"):
+            if p.get_text(strip=True):
+                items.append(p.get_text(strip=True))
+        return items
+    return []
 
 def extraer_educacion(html):
-    match = re.search(r'Nivel Educativo.*?<td>(.*?)</td>', html, re.DOTALL)
-    if match:
-        return re.sub('<.*?>', '', match.group(1)).strip()
+    soup = BeautifulSoup(html, "html.parser")
+    # Busca por tabla
+    for th in soup.find_all("th"):
+        if "educativo" in th.get_text(strip=True).lower():
+            td = th.find_next_sibling("td")
+            if td:
+                return td.get_text(strip=True)
+    # Fallback: busca por sección
+    section = _find_section_by_title(soup, ["perfil", "educación"])
+    if section:
+        text = section.get_text(separator=" ", strip=True)
+        match = re.search(r"nivel educativo[:\-]?\s*(.+?)(?:\s{2,}|$)", text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
     return ""
 
 def extraer_experiencia(html):
-    match = re.search(r'Experiencia Requerida.*?<td>(.*?)</td>', html, re.DOTALL)
-    if match:
-        return re.sub('<.*?>', '', match.group(1)).strip()
+    soup = BeautifulSoup(html, "html.parser")
+    for th in soup.find_all("th"):
+        if "experiencia" in th.get_text(strip=True).lower():
+            td = th.find_next_sibling("td")
+            if td:
+                return td.get_text(strip=True)
+    section = _find_section_by_title(soup, ["perfil", "experiencia"])
+    if section:
+        text = section.get_text(separator=" ", strip=True)
+        match = re.search(r"experiencia requerida[:\-]?\s*(.+?)(?:\s{2,}|$)", text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
     return ""
 
 def extraer_conocimientos(html):
-    # Busca la lista de conocimientos técnicos
-    conocimientos = re.findall(r'<th>Conocimientos Técnicos</th>.*?<ul[^>]*>(.*?)</ul>', html, re.DOTALL)
-    if conocimientos:
-        return [re.sub('<.*?>', '', item).strip() for item in re.findall(r'<li>(.*?)</li>', conocimientos[0], re.DOTALL)]
+    soup = BeautifulSoup(html, "html.parser")
+    for th in soup.find_all("th"):
+        if "conocimientos" in th.get_text(strip=True).lower():
+            td = th.find_next_sibling("td")
+            if td:
+                # Busca <ul> o lista dentro del td
+                ul = td.find("ul")
+                if ul:
+                    return [li.get_text(strip=True) for li in ul.find_all("li")]
+                # Si no hay lista, devuelve el texto plano
+                return [td.get_text(strip=True)]
+    section = _find_section_by_title(soup, ["perfil", "conocimientos"])
+    if section:
+        items = []
+        for li in section.find_all("li"):
+            items.append(li.get_text(strip=True))
+        if items:
+            return items
+        # Fallback: busca <p>
+        for p in section.find_all("p"):
+            if p.get_text(strip=True):
+                items.append(p.get_text(strip=True))
+        return items
     return []
 
 def extraer_idiomas(html):
-    match = re.search(r'<th>Idiomas</th>\s*<td>(.*?)</td>', html, re.DOTALL)
-    if match:
-        return re.sub('<.*?>', '', match.group(1)).strip()
+    soup = BeautifulSoup(html, "html.parser")
+    for th in soup.find_all("th"):
+        if "idioma" in th.get_text(strip=True).lower():
+            td = th.find_next_sibling("td")
+            if td:
+                return td.get_text(strip=True)
+    section = _find_section_by_title(soup, ["idioma", "idiomas"])
+    if section:
+        text = section.get_text(separator=" ", strip=True)
+        match = re.search(r"idiomas?[:\-]?\s*(.+?)(?:\s{2,}|$)", text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
     return ""
 
 def extraer_competencias(html):
-    competencias = re.findall(r'<div class="skill-tag">.*?>(.*?)</div>', html, re.DOTALL)
-    return [re.sub('<.*?>', '', c).strip() for c in competencias]
+    soup = BeautifulSoup(html, "html.parser")
+    # Busca por clase
+    tags = soup.find_all(class_="skill-tag")
+    if tags:
+        return [tag.get_text(strip=True) for tag in tags]
+    # Fallback: busca por sección
+    section = _find_section_by_title(soup, ["competencias", "habilidades"])
+    if section:
+        items = []
+        for li in section.find_all("li"):
+            items.append(li.get_text(strip=True))
+        if items:
+            return items
+        # Fallback: busca <p>
+        for p in section.find_all("p"):
+            if p.get_text(strip=True):
+                items.append(p.get_text(strip=True))
+        return items
+    return []
 
 def extraer_kpis(html):
-    # Busca la tabla de KPIs y devuelve una lista de dicts
-    kpis = []
-    kpi_rows = re.findall(r'<tr>\s*<td><b>(.*?)</b></td>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*</tr>', html, re.DOTALL)
-    for nombre, frecuencia, meta in kpi_rows:
-        kpis.append({
-            "nombre": re.sub('<.*?>', '', nombre).strip(),
-            "frecuencia": re.sub('<.*?>', '', frecuencia).strip(),
-            "meta": re.sub('<.*?>', '', meta).strip()
-        })
-    return kpis
+    soup = BeautifulSoup(html, "html.parser")
+    # Busca la tabla de KPIs
+    for section in soup.find_all(class_="section"):
+        title_tag = section.find(class_="section-title")
+        if title_tag and ("kpi" in title_tag.get_text(strip=True).lower() or "indicador" in title_tag.get_text(strip=True).lower()):
+            table = section.find("table")
+            if table:
+                kpis = []
+                for row in table.find_all("tr")[1:]:  # omite encabezado
+                    cols = row.find_all("td")
+                    if len(cols) >= 3:
+                        kpis.append({
+                            "nombre": cols[0].get_text(strip=True),
+                            "frecuencia": cols[1].get_text(strip=True),
+                            "meta": cols[2].get_text(strip=True)
+                        })
+                return kpis
+    return []
 
