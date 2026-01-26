@@ -14,6 +14,7 @@ def generate_role_profile_by_sections(cargo, company_context):
     """
     Genera el manual de funciones por secciones, garantizando que no falte ninguna.
     CORREGIDO: Se toma control de la generación del título para evitar que el prompt se filtre.
+    NO omitas ninguna sección. Si no tienes información, inventa contenido profesional y genérico para el cargo. Usa SIEMPRE la estructura HTML esperada (clases, listas, tablas, etc.).
     """
     if not client:
         return "⚠️ Error: Falta configurar OPENAI_API_KEY."
@@ -50,6 +51,7 @@ Instrucción específica: {instruccion}
 
 REGLAS ESTRICTAS:
 - Tu respuesta debe ser solo el contenido HTML (listas, tablas, párrafos).
+- Usa SIEMPRE las clases y estructura indicadas: <div class="mission-text">...</div>, <ul class="function-list">...</ul>, etc.
 - NO incluyas el título de la sección en tu respuesta.
 - NO incluyas las etiquetas ```html, <html>, <body>.
 - Si no tienes información, genera contenido genérico y profesional para el cargo.
