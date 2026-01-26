@@ -55,10 +55,11 @@ REGLAS ESTRICTAS:
 - NO incluyas el título de la sección en tu respuesta.
 - NO incluyas las etiquetas ```html, <html>, <body>.
 - Si no tienes información, genera contenido genérico y profesional para el cargo.
+- NO omitas ninguna sección.
 """
         try:
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )

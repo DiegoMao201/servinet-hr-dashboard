@@ -239,7 +239,8 @@ if tab_manual:
                     html_content = template.render(
                         cargo=cargo_dict,
                         doc=doc_dict,
-                        logo_url="logo_servinet.jpg"
+                        logo_url="logo_servinet.jpg",
+                        perfil_html=perfil_html  # <-- Asegúrate de pasar esto
                     )
                     pdf_filename = f"Manual_{cargo_dict['nombre'].replace(' ', '_')}.pdf"
                     HTML(string=html_content, base_url=template_dir).write_pdf(pdf_filename)
