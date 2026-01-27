@@ -84,7 +84,7 @@ def render_evaluation_page(cedula_empleado, token):
 
     if enviado:
         with st.spinner("Guardando respuestas..."):
-            # MEJORA: ID diferente para respuestas
+            # Guardar en MEMORIA_IA
             id_respuestas = f"EVAL_RESP_{str(cedula_empleado).strip()}"
             contenido_evaluacion = {
                 "respuestas": respuestas, 
@@ -96,6 +96,24 @@ def render_evaluation_page(cedula_empleado, token):
                 "EVALUACION", 
                 json.dumps(contenido_evaluacion, ensure_ascii=False)
             )
+            # Guardar en 2_evaluaciones
+            try:
+                client = connect_to_drive()
+                spreadsheet = client.open_by_key(SPREADSHEET_ID)
+                sheet = spreadsheet.worksheet("2_evaluaciones")
+                # Extrae los datos principales
+                nombre = datos_empleado.get("NOMBRE COMPLETO", "")
+                cargo = datos_empleado.get("CARGO", "")
+                fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                tipo_evaluador = "Jefe"  # O el tipo que corresponda
+                puntaje = calcular_puntaje(respuestas)  # Debes definir esta función según tu lógica
+                respuestas_json = json.dumps(respuestas, ensure_ascii=False)
+                comentarios = comentarios_evaluador
+                sheet.append_row([
+                    nombre, cargo, fecha, tipo_evaluador, puntaje, respuestas_json, comentarios
+                ])
+            except Exception as e:
+                st.error(f"Error guardando en hoja de evaluaciones: {e}")
             st.success("🎉 ¡Evaluación registrada con éxito!")
             st.balloons()
 
@@ -108,3 +126,20 @@ def render_evaluation_page(cedula_empleado, token):
             data = worksheet.get_all_records()
             ids = [row['ID_UNICO'] for row in data if row.get('TIPO_DOC') == "EVAL_FORM"]
             st.info(f"Formularios existentes en memoria: {ids}")
+
+def calcular_puntaje(respuestas):
+    """
+    Calcula el puntaje global de la evaluación.
+    Asume que las respuestas son valores numéricos (Likert 1-5).
+    Retorna el promedio en porcentaje (0-100).
+    """
+    valores = []
+    for v in respuestas.values():
+        try:
+            val = int(str(v)[0])  # Si la opción es "5 - Siempre", toma el número
+            valores.append(val)
+        except Exception:
+            continue
+    if not valores:
+        return 0
+    return round(sum(valores) / (len(valores) * 5) * 100, 2)
