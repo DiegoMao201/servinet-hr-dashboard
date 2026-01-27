@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import json  # <--- IMPORTANTE
+import json
 import base64
 from modules.database import get_employees, save_content_to_memory, get_saved_content
 from modules.ai_brain import generate_evaluation
@@ -93,7 +93,6 @@ def render_evaluation_page(cedula_empleado, token):
                 "fecha_registro": datetime.datetime.now().isoformat()
             }
             from modules.database import save_content_to_memory
-            import json
             save_content_to_memory(id_unico, "EVALUACION", json.dumps(contenido, ensure_ascii=False))
 
             # --- GUARDAR EN 2_evaluaciones ---
