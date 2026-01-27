@@ -306,40 +306,39 @@ if tab_eval:
 
                 if enviado:
                     with st.spinner("Guardando respuestas y procesando..."):
-                        paquete_respuestas = {
+                        # --- GUARDAR EN MEMORIA_IA ---
+                        id_unico = f"EVAL_RESP_{empleado['cedula']}"
+                        contenido = {
                             "metadata": empleado,
                             "respuestas": respuestas_usuario,
                             "comentarios": comentarios,
                             "fecha_registro": datetime.datetime.now().isoformat()
                         }
-                        id_resp = f"EVAL_RESP_{empleado['cedula']}"
-                        from modules._evaluar import calcular_puntaje
-                        from modules.database import connect_to_drive, SPREADSHEET_ID, save_content_to_memory
+                        from modules.database import save_content_to_memory
                         import json
+                        save_content_to_memory(id_unico, "EVALUACION", json.dumps(contenido, ensure_ascii=False))
 
-                        # Guardar en MEMORIA_IA
-                        save_content_to_memory(id_resp, "EVALUACION", json.dumps(paquete_respuestas, ensure_ascii=False))
-
-                        # Guardar en 2_evaluaciones
+                        # --- GUARDAR EN 2_evaluaciones ---
                         try:
+                            from modules._evaluar import calcular_puntaje
+                            from modules.database import connect_to_drive, SPREADSHEET_ID
                             client = connect_to_drive()
                             spreadsheet = client.open_by_key(SPREADSHEET_ID)
                             sheet = spreadsheet.worksheet("2_evaluaciones")
                             # Extrae los datos principales
-                            nombre = empleado.get("NOMBRE COMPLETO", "")
-                            cargo = empleado.get("CARGO", "")
+                            nombre = empleado.get("NOMBRE COMPLETO", "") or empleado.get("nombre", "")
+                            cargo = empleado.get("CARGO", "") or empleado.get("cargo", "")
                             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             tipo_evaluador = "Jefe"  # O el tipo que corresponda
                             puntaje = calcular_puntaje(respuestas_usuario)
                             respuestas_json = json.dumps(respuestas_usuario, ensure_ascii=False)
-                            comentarios = comentarios
                             sheet.append_row([
                                 nombre, cargo, fecha, tipo_evaluador, puntaje, respuestas_json, comentarios
                             ])
+                            st.success("🎉 ¡Evaluación registrada con éxito!")
+                            st.balloons()
                         except Exception as e:
                             st.error(f"Error guardando en hoja de evaluaciones: {e}")
-                        st.success("🎉 ¡Evaluación registrada con éxito!")
-                        st.balloons()
                 else:
                         st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
 
@@ -428,12 +427,14 @@ if enviado:
         )
         # Guardar en 2_evaluaciones
         try:
+            from modules._evaluar import calcular_puntaje
+            from modules.database import connect_to_drive, SPREADSHEET_ID
             client = connect_to_drive()
             spreadsheet = client.open_by_key(SPREADSHEET_ID)
             sheet = spreadsheet.worksheet("2_evaluaciones")
             # Extrae los datos principales
-            nombre = datos_empleado.get("NOMBRE COMPLETO", "")
-            cargo = datos_empleado.get("CARGO", "")
+            nombre = datos_empleado.get("NOMBRE COMPLETO", "") or datos_empleado.get("nombre", "")
+            cargo = datos_empleado.get("CARGO", "") or datos_empleado.get("cargo", "")
             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             tipo_evaluador = "Jefe"  # O el tipo que corresponda
             puntaje = calcular_puntaje(respuestas)

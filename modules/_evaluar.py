@@ -83,39 +83,39 @@ def render_evaluation_page(cedula_empleado, token):
         enviado = st.form_submit_button("✅ Finalizar y Guardar Evaluación", use_container_width=True, type="primary")
 
     if enviado:
-        with st.spinner("Guardando respuestas..."):
-            # Guardar en MEMORIA_IA
-            id_respuestas = f"EVAL_RESP_{str(cedula_empleado).strip()}"
-            contenido_evaluacion = {
-                "respuestas": respuestas, 
-                "comentarios": comentarios_evaluador,
-                "fecha": datetime.datetime.now().isoformat()
+        with st.spinner("Guardando respuestas y procesando..."):
+            # --- GUARDAR EN MEMORIA_IA ---
+            id_unico = f"EVAL_RESP_{empleado['cedula']}"
+            contenido = {
+                "metadata": empleado,
+                "respuestas": respuestas_usuario,
+                "comentarios": comentarios,
+                "fecha_registro": datetime.datetime.now().isoformat()
             }
-            save_content_to_memory(
-                id_respuestas, 
-                "EVALUACION", 
-                json.dumps(contenido_evaluacion, ensure_ascii=False)
-            )
-            # Guardar en 2_evaluaciones
+            from modules.database import save_content_to_memory
+            import json
+            save_content_to_memory(id_unico, "EVALUACION", json.dumps(contenido, ensure_ascii=False))
+
+            # --- GUARDAR EN 2_evaluaciones ---
             try:
+                from modules._evaluar import calcular_puntaje
+                from modules.database import connect_to_drive, SPREADSHEET_ID
                 client = connect_to_drive()
                 spreadsheet = client.open_by_key(SPREADSHEET_ID)
                 sheet = spreadsheet.worksheet("2_evaluaciones")
-                # Extrae los datos principales
-                nombre = datos_empleado.get("NOMBRE COMPLETO", "")
-                cargo = datos_empleado.get("CARGO", "")
+                nombre = empleado.get("NOMBRE COMPLETO", "") or empleado.get("nombre", "")
+                cargo = empleado.get("CARGO", "") or empleado.get("cargo", "")
                 fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                tipo_evaluador = "Jefe"  # O el tipo que corresponda
-                puntaje = calcular_puntaje(respuestas)  # Debes definir esta función según tu lógica
-                respuestas_json = json.dumps(respuestas, ensure_ascii=False)
-                comentarios = comentarios_evaluador
+                tipo_evaluador = "Jefe"
+                puntaje = calcular_puntaje(respuestas_usuario)
+                respuestas_json = json.dumps(respuestas_usuario, ensure_ascii=False)
                 sheet.append_row([
                     nombre, cargo, fecha, tipo_evaluador, puntaje, respuestas_json, comentarios
                 ])
+                st.success("🎉 ¡Evaluación registrada con éxito!")
+                st.balloons()
             except Exception as e:
                 st.error(f"Error guardando en hoja de evaluaciones: {e}")
-            st.success("🎉 ¡Evaluación registrada con éxito!")
-            st.balloons()
 
     # --- ANÁLISIS DE ERRORES ---
     if not eval_form_json:
