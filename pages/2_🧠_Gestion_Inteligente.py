@@ -6,8 +6,7 @@ import json
 import base64
 import urllib.parse
 import time
-
-from modules.database import get_employees, save_content_to_memory, get_saved_content
+from modules.database import get_employees, save_content_to_memory, get_saved_content, connect_to_drive, SPREADSHEET_ID
 from modules.document_reader import get_company_context
 from modules.ai_brain import generate_role_profile_by_sections, generate_evaluation, analyze_results
 from modules.drive_manager import (
@@ -303,8 +302,9 @@ if tab_eval:
                     )
                     st.divider()
                 comentarios = st.text_area("💬 Observaciones finales del evaluador:", height=100)
-                submit_eval = st.form_submit_button("💾 Guardar Evaluación Completa", use_container_width=True, type="primary")
-                if submit_eval:
+                enviado = st.form_submit_button("💾 Guardar Evaluación Completa", use_container_width=True, type="primary")
+
+                if enviado:
                     with st.spinner("Guardando respuestas y procesando..."):
                         paquete_respuestas = {
                             "metadata": empleado,
@@ -313,13 +313,35 @@ if tab_eval:
                             "fecha_registro": datetime.datetime.now().isoformat()
                         }
                         id_resp = f"EVAL_RESP_{empleado['cedula']}"
+                        from modules._evaluar import calcular_puntaje
+                        from modules.database import connect_to_drive, SPREADSHEET_ID, save_content_to_memory
+                        import json
+
+                        # Guardar en MEMORIA_IA
                         save_content_to_memory(id_resp, "EVALUACION", json.dumps(paquete_respuestas, ensure_ascii=False))
-                        if f"analisis_{empleado['cedula']}" in st.session_state:
-                            del st.session_state[f"analisis_{empleado['cedula']}"]
-                        st.success("✅ Evaluación guardada exitosamente.")
-                        st.balloons()
-        else:
-            st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
+
+                        # Guardar en 2_evaluaciones
+                        try:
+                            client = connect_to_drive()
+                            spreadsheet = client.open_by_key(SPREADSHEET_ID)
+                            sheet = spreadsheet.worksheet("2_evaluaciones")
+                            # Extrae los datos principales
+                            nombre = empleado.get("NOMBRE COMPLETO", "")
+                            cargo = empleado.get("CARGO", "")
+                            fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            tipo_evaluador = "Jefe"  # O el tipo que corresponda
+                            puntaje = calcular_puntaje(respuestas_usuario)
+                            respuestas_json = json.dumps(respuestas_usuario, ensure_ascii=False)
+                            comentarios = comentarios_evaluador
+                            sheet.append_row([
+                                nombre, cargo, fecha, tipo_evaluador, puntaje, respuestas_json, comentarios
+                            ])
+                        except Exception as e:
+                            st.error(f"Error guardando en hoja de evaluaciones: {e}")
+                            st.success("🎉 ¡Evaluación registrada con éxito!")
+                            st.balloons()
+                        else:
+                            st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
 
 # ========== PESTAÑA 3: RESULTADOS ==========
 if tab_resultados:
@@ -414,7 +436,7 @@ if enviado:
             cargo = datos_empleado.get("CARGO", "")
             fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             tipo_evaluador = "Jefe"  # O el tipo que corresponda
-            puntaje = calcular_puntaje(respuestas)  # Debes definir esta función según tu lógica
+            puntaje = calcular_puntaje(respuestas)
             respuestas_json = json.dumps(respuestas, ensure_ascii=False)
             comentarios = comentarios_evaluador
             sheet.append_row([
