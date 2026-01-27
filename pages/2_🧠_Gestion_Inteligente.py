@@ -421,7 +421,7 @@ if enviado:
     with st.spinner("Guardando respuestas..."):
         # Guardar en MEMORIA_IA
         save_content_to_memory(
-            id_respuestas, 
+            id_unico, 
             "EVALUACION", 
             json.dumps(contenido_evaluacion, ensure_ascii=False)
         )
