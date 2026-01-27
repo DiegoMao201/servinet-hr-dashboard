@@ -55,9 +55,13 @@ def render_ficha_page(cedula, token):
         sede = col2.text_input("Sede", value=datos.get("SEDE", ""))
         correo = col1.text_input("Correo", value=datos.get("CORREO", ""))
         celular = col2.text_input("Celular", value=str(datos.get("CELULAR", "")))
-        direccion = col1.text_input("Dirección de Residencia", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
+        direccion_residencia = col1.text_input("Dirección de Residencia", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
         banco = col2.text_input("Banco", value=datos.get("BANCO", ""))
-        # Agrega más campos si lo deseas
+        fecha_ingreso = col1.text_input("Fecha de Ingreso", value=datos.get("FECHA_INGRESO", ""))
+        fecha_nacimiento = col2.text_input("Fecha de Nacimiento", value=datos.get("FECHA_NACIMIENTO", ""))
+        estado_civil = col1.text_input("Estado Civil", value=datos.get("ESTADO_CIVIL", ""))
+        hijos = col2.text_input("Hijos", value=datos.get("HIJOS", ""))
+        direccion = col1.text_input("Dirección", value=datos.get("DIRECCION", ""))
 
         enviado = st.form_submit_button("💾 Actualizar Datos", use_container_width=True, type="primary")
 
@@ -79,8 +83,12 @@ def render_ficha_page(cedula, token):
                 "SEDE": sede,
                 "CORREO": correo,
                 "CELULAR": celular,
-                "DIRECCIÓN DE RESIDENCIA": direccion,
-                "BANCO": banco
+                "DIRECCIÓN DE RESIDENCIA": direccion_residencia,
+                "BANCO": banco,
+                "FECHA_INGRESO": fecha_ingreso,
+                "FECHA_NACIMIENTO": fecha_nacimiento,
+                "ESTADO_CIVIL": estado_civil,
+                "HIJOS": hijos,
             }
             for key, value in updates.items():
                 col_idx = col_map.get(key.strip().upper())

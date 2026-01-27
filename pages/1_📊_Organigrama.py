@@ -312,12 +312,20 @@ with tab2:
                 updates["SEDE"] = c_b.text_input("Sede", value=datos.get("SEDE", ""))
                 updates["CORREO"] = c_a.text_input("Correo", value=datos.get("CORREO", ""))
                 updates["CELULAR"] = c_b.text_input("Celular", value=str(datos.get("CELULAR", "")))
-                updates["ESTADO"] = c_a.selectbox("Estado", ["Activo", "Inactivo"], index=0 if datos.get("ESTADO", "Activo") == "Activo" else 1)
-                updates["SALARIO APORTES"] = c_b.text_input("Salario", value=str(datos.get("SALARIO APORTES", "")))
-                updates["DIRECCIÓN DE RESIDENCIA"] = c_a.text_input("Dirección", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
+                updates["DIRECCIÓN DE RESIDENCIA"] = c_a.text_input("Dirección de Residencia", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
                 updates["BANCO"] = c_b.text_input("Banco", value=datos.get("BANCO", ""))
-                updates["ESTADO_CONTRATO"] = c_a.text_input("Estado Contrato", value=datos.get("ESTADO_CONTRATO", ""))
-                
+                # CAMPOS NUEVOS
+                updates["FECHA_INGRESO"] = c_a.text_input("Fecha de Ingreso", value=datos.get("FECHA_INGRESO", ""))
+                updates["FECHA_NACIMIENTO"] = c_b.text_input("Fecha de Nacimiento", value=datos.get("FECHA_NACIMIENTO", ""))
+                updates["ESTADO_CIVIL"] = c_a.text_input("Estado Civil", value=datos.get("ESTADO_CIVIL", ""))
+                updates["HIJOS"] = c_b.text_input("Hijos", value=datos.get("HIJOS", ""))
+
+                updates["ESTADO"] = c_b.selectbox("Estado", ["Activo", "Inactivo"], index=0 if datos.get("ESTADO", "Activo") == "Activo" else 1)
+                updates["SALARIO APORTES"] = c_a.text_input("Salario", value=str(datos.get("SALARIO APORTES", "")))
+                updates["DIRECCIÓN DE RESIDENCIA"] = c_b.text_input("Dirección de Residencia", value=datos.get("DIRECCIÓN DE RESIDENCIA", ""))
+                updates["BANCO"] = c_a.text_input("Banco", value=datos.get("BANCO", ""))
+                updates["ESTADO_CONTRATO"] = c_b.text_input("Estado Contrato", value=datos.get("ESTADO_CONTRATO", ""))
+
                 if st.form_submit_button("💾 Guardar Cambios", use_container_width=True):
                     with st.spinner("Guardando en Google Sheets..."):
                         if actualizar_empleado_google_sheets(datos.get("CEDULA"), updates):
@@ -331,7 +339,7 @@ with tab2:
     st.markdown("---")
     st.markdown("### 📲 Envío de Ficha de Datos por WhatsApp")
     st.info("Envía tu ficha de datos a través de WhatsApp para mantener tu información actualizada.")
-    
+
     token_seguro = base64.b64encode(str(datos.get("CEDULA")).encode()).decode()
     base_url = "https://servinet.datovatenexuspro.com"
     link_ficha = f"{base_url}/?ficha={datos.get('CEDULA')}&token={token_seguro}"
@@ -341,7 +349,13 @@ with tab2:
         "Por favor ingresa al siguiente enlace seguro y completa o corrige tus datos personales y laborales:%0A"
         f"{link_ficha}%0A%0A"
         "¡Gracias por tu compromiso y dedicación!%0A"
-        "Gestión Humana SERVINET"
+        "Gestión Humana SERVINET%0A"
+        "Recuerda actualizar también:%0A"
+        "- Fecha de Ingreso%0A"
+        "- Fecha de Nacimiento%0A"
+        "- Estado Civil%0A"
+        "- Hijos%0A"
+        "- Dirección%0A"
     )
     mensaje_encoded = urllib.parse.quote(mensaje)
 
@@ -358,7 +372,7 @@ with tab2:
                 display: flex;
                 align-items: center;
                 gap: 10px;">
-                <span style="font-size: 20px;">📱</span> Enviar Ficha para Actualización
-            </button>
-        </a>
-    """, unsafe_allow_html=True)
+            <span style="font-size: 20px;">📱</span> Enviar Ficha para Actualización
+        </button>
+    </a>
+""", unsafe_allow_html=True)
