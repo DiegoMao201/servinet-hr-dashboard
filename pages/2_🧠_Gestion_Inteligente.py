@@ -332,16 +332,16 @@ if tab_eval:
                             tipo_evaluador = "Jefe"  # O el tipo que corresponda
                             puntaje = calcular_puntaje(respuestas_usuario)
                             respuestas_json = json.dumps(respuestas_usuario, ensure_ascii=False)
-                            comentarios = comentarios_evaluador
+                            comentarios = comentarios
                             sheet.append_row([
                                 nombre, cargo, fecha, tipo_evaluador, puntaje, respuestas_json, comentarios
                             ])
                         except Exception as e:
                             st.error(f"Error guardando en hoja de evaluaciones: {e}")
-                            st.success("🎉 ¡Evaluación registrada con éxito!")
-                            st.balloons()
-                        else:
-                            st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
+                        st.success("🎉 ¡Evaluación registrada con éxito!")
+                        st.balloons()
+                else:
+                        st.warning("No se pudo cargar el formulario de evaluación. Intente regenerarlo.")
 
 # ========== PESTAÑA 3: RESULTADOS ==========
 if tab_resultados:
