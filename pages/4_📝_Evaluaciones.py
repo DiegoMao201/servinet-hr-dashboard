@@ -87,6 +87,8 @@ st.caption("Página integrada con IA, manuales y desempeño. SERVINET 2024.")
 # Nueva sección para Capacitación
 st.title("📅 Cronograma de Capacitaciones")
 
+client = connect_to_drive()
+spreadsheet = client.open_by_key(SPREADSHEET_ID)
 sheet = spreadsheet.worksheet("3_capacitaciones")
 data = sheet.get_all_records()
 df_capacitaciones = pd.DataFrame(data)
